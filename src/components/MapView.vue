@@ -10,19 +10,19 @@ const canvasRef = ref(null)
 let watchId = null
 let camera
 let scene
-let greenDot
+let locationDot
 const centerLat = 14.233539920666581
 const centerLon = 121.15133389733768
 const scale = 385000
-
-///Taget Coordinates
+let rotationCenter = null
 const targetCoord = [121.14994, 14.232900]
 const gateCoord = [121.149852, 14.234344]
+
 function convertToXY([lon, lat]) {
-    const x = (lon - centerLon) * scale
-    const y = (lat - centerLat) * scale
-    return { x, y }
-  }
+  const x = (lon - centerLon) * scale
+  const y = (lat - centerLat) * scale
+  return { x, y }
+}
 
 onMounted(() => {
   const canvas = canvasRef.value
@@ -32,8 +32,11 @@ onMounted(() => {
   renderer.setSize(window.innerWidth, window.innerHeight)
 
   scene = new THREE.Scene()
-  let mapWidth;
-  let mapHeight;
+  let mapWidth
+  let mapHeight
+  let lineMaterial
+  let pinSprite
+
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2, window.innerWidth / 2,
     window.innerHeight / 2, window.innerHeight / -2,
@@ -41,66 +44,98 @@ onMounted(() => {
   )
   camera.position.z = 10
 
-
-
   let routeGroup = new THREE.Group()
   scene.add(routeGroup)
 
   const { x, y } = convertToXY([121.14994, 14.232900])
   camera.position.set(x, y, 10)
+
   const loader = new THREE.TextureLoader()
   loader.load('/assets/images/cabuyao_map_2000m.jpg', (texture) => {
-     mapWidth = texture.image.width
-     mapHeight = texture.image.height
+    mapWidth = texture.image.width
+    mapHeight = texture.image.height
 
     const geometry = new THREE.PlaneGeometry(mapWidth, mapHeight)
     const material = new THREE.MeshBasicMaterial({ map: texture })
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
 
-    // Start watching location
     watchId = watchUserLocation((pos) => {
-      const { longitude, latitude } = pos.coords
-      const livecoords = [longitude, latitude]
-      const coords = gateCoord /// change to livecoords for more accuracy
-      const { x, y } = convertToXY(coords)
-      const coneGeo = new THREE.ConeGeometry(6,18,32)
-      const coneMaterial = new THREE.MeshBasicMaterial({
-        color:0x4285f4,
-        transparent: true,
-        opacity: 0.9
-      })
-      const directionCone = new THREE.Mesh(coneGeo, coneMaterial)
+  const { longitude, latitude, heading } = pos.coords
+  const liveCoords = [longitude, latitude]
 
-      if (!greenDot) {
-        const inner = new THREE.Mesh(
+  function findNearestPoint(coord, coordMap) {
+    let minDist = Infinity
+    for (const coords of coordMap.values()) {
+      if (!coords || coords.length < 2) continue
+      const dx = coords[0] - coord[0]
+      const dy = coords[1] - coord[1]
+      const dist = dx * dx + dy * dy
+      if (dist < minDist) minDist = dist
+    }
+    return minDist
+  }
+
+  fetch('/assets/json/points.json')
+    .then(res => res.json())
+    .then(data => {
+      const coordMap = new Map()
+      data.points.forEach(p => {
+        coordMap.set(p.id, p.coordinates)
+      })
+
+      const threshold = 0.0003 // ~30 meters
+      const distToNearest = findNearestPoint(liveCoords, coordMap)
+
+      const coords = distToNearest < threshold ? liveCoords : gateCoord
+      const { x, y } = convertToXY(coords)
+
+      // --- everything that uses coords, x, y should be inside here ---
+      if (!locationDot) {
+        const dot = new THREE.Mesh(
           new THREE.CircleGeometry(8, 32),
           new THREE.MeshBasicMaterial({ color: 0x4285F4 })
         )
-        const outer = new THREE.Mesh(
-          new THREE.RingGeometry(12, 18, 32),
-          new THREE.MeshBasicMaterial({
-            color: 0x4285F4,
-            transparent: true,
-            opacity: 0.3,
-            side: THREE.DoubleSide
-          })
-        )
-        greenDot = new THREE.Group()
-        greenDot.add(inner)
-        greenDot.add(outer)
-        greenDot.position.set(x, y, 1.5)
-        directionCone.position.set(0,16,2)
-        directionCone.rotation.z = Math.PI
-        greenDot.add(directionCone)
-        scene.add(greenDot)
 
+        const beamShape = new THREE.Shape()
+        const radius = 50
+        const angleSpan = Math.PI / 2
+
+        beamShape.moveTo(0, 0)
+        beamShape.absarc(0, 0, radius, -angleSpan / 2, angleSpan / 2, false)
+        beamShape.lineTo(0, 0)
+
+        const beamGeo = new THREE.ShapeGeometry(beamShape)
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: 0x4285f4,
+          transparent: true,
+          opacity: 0.3,
+          depthWrite: false,
+        })
+        const beam = new THREE.Mesh(beamGeo, beamMat)
+        beam.name = 'directionBeam'
+        beam.rotation.z = Math.PI / 2
+
+        locationDot = new THREE.Group()
+        locationDot.add(dot)
+        locationDot.add(beam)
+        locationDot.position.set(x, y, 1.5)
+        scene.add(locationDot)
       } else {
-        greenDot.position.set(x, y, 1.5)
+        locationDot.position.set(x, y, 1.5)
+      }
+
+      camera.position.set(x, y, 10)
+
+      if (typeof heading === 'number' && !isNaN(heading)) {
+        scene.rotation.z = -THREE.MathUtils.degToRad(heading)
       }
 
       loadAndDrawPoints(coords)
     })
+})
+
+
   })
 
   function loadAndDrawPoints(startCoord) {
@@ -119,7 +154,6 @@ onMounted(() => {
           pointMap.set(p.id, p.points)
           coordMap.set(p.id, p.coordinates)
         })
-
 
         function findNearestPointId(coord) {
           let nearestId = null
@@ -178,7 +212,7 @@ onMounted(() => {
         const lineGeometry = new LineGeometry()
         lineGeometry.setPositions(positions)
 
-        const lineMaterial = new LineMaterial({
+        lineMaterial = new LineMaterial({
           color: 0x4285F4,
           linewidth: 8,
           worldUnits: false
@@ -192,7 +226,7 @@ onMounted(() => {
         const { x: tx, y: ty } = convertToXY(targetCoord)
         const spriteMap = new THREE.TextureLoader().load('/assets/stickers/location_pin.png')
         const spriteMaterial = new THREE.SpriteMaterial({ map: spriteMap, transparent: true })
-        const pinSprite = new THREE.Sprite(spriteMaterial)
+        pinSprite = new THREE.Sprite(spriteMaterial)
         pinSprite.scale.set(32, 32, 1)
         pinSprite.position.set(tx, ty + 15, 3)
         routeGroup.add(pinSprite)
@@ -200,9 +234,24 @@ onMounted(() => {
   }
 
   function animate() {
-    requestAnimationFrame(animate)
-    renderer.render(scene, camera)
+  requestAnimationFrame(animate)
+
+  if (lineMaterial) {
+    lineMaterial.resolution.set(window.innerWidth, window.innerHeight)
   }
+
+  renderer.render(scene, camera)
+
+ if (locationDot) {
+  locationDot.rotation.z = -scene.rotation.z
+  const beam = locationDot.getObjectByName('directionBeam')
+}
+
+  if (pinSprite) {
+    pinSprite.rotation.z = -scene.rotation.z
+  }
+}
+
   animate()
 
   // Drag and Rotate Events For Web
@@ -227,6 +276,8 @@ onMounted(() => {
     lastMouse.y = e.clientY
     if (e.button === 0) isDragging = true
     else if (e.button === 2) isRotating = true
+    rotationCenter = screenToWorld(e.clientX, e.clientY)
+  
   })
 
   window.addEventListener('mouseup', () => {
@@ -252,8 +303,14 @@ onMounted(() => {
       camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
       camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
     }
-    if (isRotating) {
-      scene.rotation.z += dx * 0.005
+    if (isRotating && rotationCenter) {
+      const angle = dx * 0.005
+
+      scene.position.sub(rotationCenter)
+      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
+      scene.position.add(rotationCenter)
+
+      scene.rotation.z += angle
     }
   })
 
@@ -313,6 +370,9 @@ onMounted(() => {
     startDrag(touch.clientX, touch.clientY)
   } else if (e.touches.length === 2){
     lastAngle = getAngle(e.touches)
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+    rotationCenter = screenToWorld(midX, midY)
   }
 })
 canvas.addEventListener('touchmove', (e) => {
@@ -320,11 +380,16 @@ canvas.addEventListener('touchmove', (e) => {
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     moveDrag(touch.clientX, touch.clientY)
-  } else if (e.touches.length === 2) {
+  } else if (e.touches.length === 2 && rotationCenter) {
     const newAngle = getAngle(e.touches)
     if(lastAngle !== null){
-      const delta = newAngle - lastAngle
-      scene.rotation.z += delta 
+
+    const delta = newAngle - lastAngle
+    scene.position.sub(rotationCenter)
+    scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta)
+    scene.position.add(rotationCenter)
+
+    scene.rotation.z += delta
     }
     lastAngle = newAngle
   }
@@ -332,8 +397,14 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
   stopDrag()
   lastAngle = null
+  rotationCenter = null
 })
 
+window.addEventListener('mouseup', () => {
+  isDragging = false
+  isRotating = false
+  rotationCenter = null
+})
 function getAngle(touches) {
   const [touch1, touch2] = touches
   const dx = touch2.clientX - touch1.clientX
@@ -347,22 +418,29 @@ function getAngle(touches) {
 function resetCamera() {
   if (!camera || !scene) return
 
-  ///Used the long lat from gate
-  const userCoord = convertToXY([121.149856, 14.234339]);
-  const targetCoord = convertToXY([121.14994, 14.232900]) // your fixed target location
+  // Convert both coordinates to XY first
+  const gate = convertToXY(gateCoord)
+  const target = convertToXY(targetCoord)
 
-  if (!userCoord) return
-
-  // Midpoint between current and target position
-  const midX = (userCoord.x + targetCoord.x) / 2
-  const midY = (userCoord.y + targetCoord.y) / 2
+  // Calculate midpoint between gate and target
+  const midX = (gate.x + target.x) / 2
+  const midY = (gate.y + target.y) / 2
 
   camera.position.set(midX, midY, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
+
   scene.rotation.z = 0
 }
 
+
+function screenToWorld(x,y){
+  const ndcX = (x / window.innerWidth) * 2 - 1
+  const ndcY = -(y / window.innerHeight) * 2 + 1
+  const vector =new THREE.Vector3(ndcX, ndcY, 0)
+  vector.unproject(camera)
+  return vector
+}
 
 
 onBeforeUnmount(() => {
