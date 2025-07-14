@@ -14,15 +14,35 @@ let locationDot
 const centerLat = 14.233539920666581
 const centerLon = 121.15133389733768
 const scale = 385000
-let rotationCenter = null
-const targetCoord = [121.14994, 14.232900]
+
+const targetCoord = [121.152172, 14.233072]
 const gateCoord = [121.149852, 14.234344]
+let liveCoords;
+let coordMap; 
+
+const defaultCameraState = {
+  position: new THREE.Vector3(),
+  zoom: 1,
+  rotation: 0,
+}
+
 
 function convertToXY([lon, lat]) {
   const x = (lon - centerLon) * scale
   const y = (lat - centerLat) * scale
   return { x, y }
 }
+  function findNearestPoint(coord, coordMap) {
+    let minDist = Infinity
+    for (const coords of coordMap.values()) {
+      if (!coords || coords.length < 2) continue
+      const dx = coords[0] - coord[0]
+      const dy = coords[1] - coord[1]
+      const dist = dx * dx + dy * dy
+      if (dist < minDist) minDist = dist
+    }
+    return minDist
+  }
 
 onMounted(() => {
   const canvas = canvasRef.value
@@ -30,7 +50,7 @@ onMounted(() => {
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
-
+  
   scene = new THREE.Scene()
   let mapWidth
   let mapHeight
@@ -49,37 +69,31 @@ onMounted(() => {
 
   const { x, y } = convertToXY([121.14994, 14.232900])
   camera.position.set(x, y, 10)
-
+  camera.zoom = 1
+  camera.updateProjectionMatrix()
+  defaultCameraState.position.copy(camera.position)
+  defaultCameraState.zoom = camera.zoom
+  defaultCameraState.rotation = scene.rotation.z
   const loader = new THREE.TextureLoader()
   loader.load('/assets/images/cabuyao_map_2000m.jpg', (texture) => {
     mapWidth = texture.image.width
     mapHeight = texture.image.height
 
+    const mapCenter = new THREE.Vector3(0, 0, 0) 
     const geometry = new THREE.PlaneGeometry(mapWidth, mapHeight)
     const material = new THREE.MeshBasicMaterial({ map: texture })
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
-
     watchId = watchUserLocation((pos) => {
   const { longitude, latitude, heading } = pos.coords
-  const liveCoords = [longitude, latitude]
+  liveCoords = [longitude, latitude]
 
-  function findNearestPoint(coord, coordMap) {
-    let minDist = Infinity
-    for (const coords of coordMap.values()) {
-      if (!coords || coords.length < 2) continue
-      const dx = coords[0] - coord[0]
-      const dy = coords[1] - coord[1]
-      const dist = dx * dx + dy * dy
-      if (dist < minDist) minDist = dist
-    }
-    return minDist
-  }
+
 
   fetch('/assets/json/points.json')
     .then(res => res.json())
     .then(data => {
-      const coordMap = new Map()
+       coordMap = new Map()
       data.points.forEach(p => {
         coordMap.set(p.id, p.coordinates)
       })
@@ -98,11 +112,11 @@ onMounted(() => {
         )
 
         const beamShape = new THREE.Shape()
-        const radius = 50
-        const angleSpan = Math.PI / 2
+        const radius = 30
+        const angleSpan = Math.PI 
 
         beamShape.moveTo(0, 0)
-        beamShape.absarc(0, 0, radius, -angleSpan / 2, angleSpan / 2, false)
+        beamShape.absarc(0, 0, radius, -angleSpan, angleSpan, false)
         beamShape.lineTo(0, 0)
 
         const beamGeo = new THREE.ShapeGeometry(beamShape)
@@ -224,11 +238,15 @@ onMounted(() => {
         routeGroup.add(thickLine)
 
         const { x: tx, y: ty } = convertToXY(targetCoord)
-        const spriteMap = new THREE.TextureLoader().load('/assets/stickers/location_pin.png')
-        const spriteMaterial = new THREE.SpriteMaterial({ map: spriteMap, transparent: true })
-        pinSprite = new THREE.Sprite(spriteMaterial)
-        pinSprite.scale.set(32, 32, 1)
-        pinSprite.position.set(tx, ty + 15, 3)
+        const texture = new THREE.TextureLoader().load('/assets/stickers/location_pin.png')
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          transparent: true
+        })
+        const geometry = new THREE.PlaneGeometry(36, 36) 
+        geometry.translate(0, 18, 0)
+        pinSprite = new THREE.Mesh(geometry, material)
+        pinSprite.position.set(tx, ty, 3) 
         routeGroup.add(pinSprite)
       })
   }
@@ -242,13 +260,11 @@ onMounted(() => {
 
   renderer.render(scene, camera)
 
- if (locationDot) {
+  if (locationDot) {
   locationDot.rotation.z = -scene.rotation.z
-  const beam = locationDot.getObjectByName('directionBeam')
-}
-
+  }
   if (pinSprite) {
-    pinSprite.rotation.z = -scene.rotation.z
+    pinSprite.rotation.z = -scene.rotation.z 
   }
 }
 
@@ -276,7 +292,6 @@ onMounted(() => {
     lastMouse.y = e.clientY
     if (e.button === 0) isDragging = true
     else if (e.button === 2) isRotating = true
-    rotationCenter = screenToWorld(e.clientX, e.clientY)
   
   })
 
@@ -293,7 +308,7 @@ onMounted(() => {
     if (isDragging) {
       camera.position.x -= dx / camera.zoom
       camera.position.y += dy / camera.zoom
-
+      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
       const halfWidth = (window.innerWidth / 2) / camera.zoom
       const halfHeight = (window.innerHeight / 2) / camera.zoom
 
@@ -303,12 +318,13 @@ onMounted(() => {
       camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
       camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
     }
-    if (isRotating && rotationCenter) {
+      if (isRotating) {
       const angle = dx * 0.005
+      const center = new THREE.Vector3(0, 0, 0)
 
-      scene.position.sub(rotationCenter)
+      scene.position.sub(center)
       scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
-      scene.position.add(rotationCenter)
+      scene.position.add(center)
 
       scene.rotation.z += angle
     }
@@ -350,7 +366,7 @@ onMounted(() => {
     if (isDragging){
       camera.position.x -= dx / camera.zoom
       camera.position.y += dy / camera.zoom
-
+      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
       const halfWidth = (window.innerWidth / 2 ) / camera.zoom
       const halfHeight = (window.innerHeight / 2) / camera.zoom
       const xLimit = mapWidth / 2 - halfWidth
@@ -372,7 +388,6 @@ onMounted(() => {
     lastAngle = getAngle(e.touches)
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
     const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2
-    rotationCenter = screenToWorld(midX, midY)
   }
 })
 canvas.addEventListener('touchmove', (e) => {
@@ -380,16 +395,17 @@ canvas.addEventListener('touchmove', (e) => {
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     moveDrag(touch.clientX, touch.clientY)
-  } else if (e.touches.length === 2 && rotationCenter) {
+  } else if (e.touches.length === 2) {
     const newAngle = getAngle(e.touches)
-    if(lastAngle !== null){
+    if (lastAngle !== null) {
+      const delta = newAngle - lastAngle
+      const center = new THREE.Vector3(0, 0, 0)
 
-    const delta = newAngle - lastAngle
-    scene.position.sub(rotationCenter)
-    scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta)
-    scene.position.add(rotationCenter)
+      scene.position.sub(center)
+      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta)
+      scene.position.add(center)
 
-    scene.rotation.z += delta
+      scene.rotation.z += delta
     }
     lastAngle = newAngle
   }
@@ -397,13 +413,11 @@ canvas.addEventListener('touchmove', (e) => {
 canvas.addEventListener('touchend', (e) => {
   stopDrag()
   lastAngle = null
-  rotationCenter = null
 })
 
 window.addEventListener('mouseup', () => {
   isDragging = false
   isRotating = false
-  rotationCenter = null
 })
 function getAngle(touches) {
   const [touch1, touch2] = touches
@@ -418,28 +432,74 @@ function getAngle(touches) {
 function resetCamera() {
   if (!camera || !scene) return
 
-  // Convert both coordinates to XY first
-  const gate = convertToXY(gateCoord)
-  const target = convertToXY(targetCoord)
+  // Reset rotation first
+  scene.rotation.z = 0
 
-  // Calculate midpoint between gate and target
-  const midX = (gate.x + target.x) / 2
-  const midY = (gate.y + target.y) / 2
+  // Convert gateCoord to world XY
+  const { x, y } = convertToXY(gateCoord)
 
-  camera.position.set(midX, midY, 10)
+  // Recenter camera directly on the actual point
+  camera.position.set(x, y, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
 
-  scene.rotation.z = 0
 }
 
+function clampCameraToRadius(center, radius) {
+  const dx = camera.position.x - center.x
+  const dy = camera.position.y - center.y
+  const distSq = dx * dx + dy * dy
+  const radiusSq = radius * radius
 
-function screenToWorld(x,y){
-  const ndcX = (x / window.innerWidth) * 2 - 1
-  const ndcY = -(y / window.innerHeight) * 2 + 1
-  const vector =new THREE.Vector3(ndcX, ndcY, 0)
-  vector.unproject(camera)
-  return vector
+  if (distSq > radiusSq) {
+    const dist = Math.sqrt(distSq)
+    const scale = radius / dist
+    camera.position.x = center.x + dx * scale
+    camera.position.y = center.y + dy * scale
+  }
+}
+
+function clampCameraWithinMap(camera, mapWidth, mapHeight, rotationZ) {
+  const halfScreenW = (window.innerWidth / 2) / camera.zoom
+  const halfScreenH = (window.innerHeight / 2) / camera.zoom
+
+  // Calculate axis-aligned bounds of the map after rotation
+  const cosR = Math.cos(rotationZ)
+  const sinR = Math.sin(rotationZ)
+
+  const corners = [
+    new THREE.Vector2(-mapWidth / 2, -mapHeight / 2),
+    new THREE.Vector2(mapWidth / 2, -mapHeight / 2),
+    new THREE.Vector2(mapWidth / 2, mapHeight / 2),
+    new THREE.Vector2(-mapWidth / 2, mapHeight / 2),
+  ].map((corner) => {
+    return new THREE.Vector2(
+      corner.x * cosR - corner.y * sinR,
+      corner.x * sinR + corner.y * cosR
+    )
+  })
+
+  // Compute AABB from rotated corners
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity
+
+  corners.forEach((c) => {
+    minX = Math.min(minX, c.x)
+    maxX = Math.max(maxX, c.x)
+    minY = Math.min(minY, c.y)
+    maxY = Math.max(maxY, c.y)
+  })
+
+  const xLimitMin = minX + halfScreenW
+  const xLimitMax = maxX - halfScreenW
+  const yLimitMin = minY + halfScreenH
+  const yLimitMax = maxY - halfScreenH
+
+  // Clamp camera position directly (no unrotating needed)
+  camera.position.x = Math.max(xLimitMin, Math.min(xLimitMax, camera.position.x))
+  camera.position.y = Math.max(yLimitMin, Math.min(yLimitMax, camera.position.y))
 }
 
 
@@ -449,58 +509,20 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.map-wrapper,
-canvas {
+.map-wrapper {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
-  margin: 0;
-  padding: 0;
-  display: block;
   overflow: hidden;
-}
-.home-btn {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;    
-  outline: none;
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  z-index: 10;
-  width: 60px;
-  height: 60px;
-  font-size: 24px;
-  background: rgba(255, 255, 255, 0.7);
-  border: none;
-  border-radius: 50%;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  color: #333;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background 0.3s ease,
-    box-shadow 0.3s ease,
-    transform 0.1s ease;
+  z-index: 0;
 }
 
-.home-btn:hover {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-
-.home-btn:active {
-  transform: scale(0.95);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-}
-.home-btn:focus,
-.home-btn:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
-
 </style>
 <template>
   <div class="map-wrapper">
