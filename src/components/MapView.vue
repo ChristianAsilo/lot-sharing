@@ -10,6 +10,7 @@ const canvasRef = ref(null)
 let watchId = null
 let camera
 let scene
+let mapGroup
 let locationDot
 const centerLat = 14.233539920666581
 const centerLon = 121.15133389733768
@@ -56,7 +57,7 @@ onMounted(() => {
   let lineMaterial
   let pinSprite
   let lastPinchDistance = null
-
+  mapGroup = new THREE.Group()
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2, window.innerWidth / 2,
     window.innerHeight / 2, window.innerHeight / -2,
@@ -73,7 +74,7 @@ onMounted(() => {
   camera.updateProjectionMatrix()
   defaultCameraState.position.copy(camera.position)
   defaultCameraState.zoom = camera.zoom
-  defaultCameraState.rotation = scene.rotation.z
+  defaultCameraState.rotation = mapGroup.rotation.z
   const loader = new THREE.TextureLoader()
   loader.load('/assets/images/cabuyao_map_2000m.jpg', (texture) => {
     mapWidth = texture.image.width
@@ -149,7 +150,7 @@ onMounted(() => {
       }
 
     if (!userMovedCamera && typeof heading === 'number' && !isNaN(heading)) {
-      scene.rotation.z = -THREE.MathUtils.degToRad(heading)
+      mapGroup.rotation.z = -THREE.MathUtils.degToRad(heading)
     }
 
       loadAndDrawPoints(coords)
@@ -273,10 +274,10 @@ onMounted(() => {
   renderer.render(scene, camera)
 
   if (locationDot) {
-  locationDot.rotation.z = -scene.rotation.z
+  locationDot.rotation.z = -mapGroup.rotation.z
   }
   if (pinSprite) {
-    pinSprite.rotation.z = -scene.rotation.z 
+    pinSprite.rotation.z = -mapGroup.rotation.z 
   }
 }
 
@@ -338,7 +339,7 @@ onMounted(() => {
       scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
       scene.position.add(center)
 
-      scene.rotation.z += angle
+      mapGroup.rotation.z += angle
     }
   })
 
@@ -389,7 +390,7 @@ onMounted(() => {
   }
   
   if (isRotating) {
-    scene.rotation.z += dx * 0.005
+    mapGroup.rotation.z += dx * 0.005
   }
   }
   function rotateAroundPivot(group, pivot, angle) {
@@ -427,7 +428,7 @@ onMounted(() => {
 //     const newAngle = getAngle(e.touches)
 //     if (lastAngle !== null) {
 //       const delta = newAngle - lastAngle
-//       scene.rotation.z += delta
+//       mapGroup.rotation.z += delta
 //     }
 //     lastAngle = newAngle
 
@@ -476,10 +477,12 @@ canvas.addEventListener('touchmove', (e) => {
   }
 }, { passive: false })
 
-canvas.addEventListener('touchend', () => {
-  stopDrag()
-  lastAngle = null
-  lastPinchDistance = null
+canvas.addEventListener('touchend', (e) => {
+  if (e.touches.length === 0) {
+    stopDrag()
+    lastAngle = null
+    lastPinchDistance = null
+  }
 })
 
 window.addEventListener('mouseup', () => {
@@ -500,7 +503,7 @@ function resetCamera() {
   if (!camera || !scene) return
 
   // Reset rotation first
-  scene.rotation.z = 0
+  mapGroup.rotation.z = 0
 
   // Convert gateCoord to world XY
   const { x, y } = convertToXY(gateCoord)
