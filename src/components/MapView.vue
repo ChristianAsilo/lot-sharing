@@ -86,7 +86,7 @@ onMounted(() => {
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
 
-    let mapGroup = new THREE.Group()
+    mapGroup = new THREE.Group()
     scene.add(mapGroup)
     mapGroup.add(mapPlane)
     mapGroup.add(locationDot)
