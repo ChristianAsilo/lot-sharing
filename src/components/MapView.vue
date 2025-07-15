@@ -50,7 +50,6 @@ onMounted(() => {
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
-  
   scene = new THREE.Scene()
   let mapWidth
   let mapHeight
@@ -85,6 +84,12 @@ onMounted(() => {
     const material = new THREE.MeshBasicMaterial({ map: texture })
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
+
+    let mapGroup = new THREE.Group()
+    scene.add(mapGroup)
+    mapGroup.add(mapPlane)
+    mapGroup.add(locationDot)
+    mapGroup.add(routeGroup)
     watchId = watchUserLocation((pos) => {
   const { longitude, latitude, heading } = pos.coords
   liveCoords = [longitude, latitude]
@@ -387,6 +392,17 @@ onMounted(() => {
     scene.rotation.z += dx * 0.005
   }
   }
+  function rotateAroundPivot(group, pivot, angle) {
+  const m = new THREE.Matrix4()
+  m.makeTranslation(-pivot.x, -pivot.y, 0)
+  group.applyMatrix4(m)
+
+  group.rotation.z += angle
+
+  m.makeTranslation(pivot.x, pivot.y, 0)
+  group.applyMatrix4(m)
+}
+
   canvas.addEventListener('touchstart', (e) => {
     userMovedCamera = true
   if (e.touches.length === 1) {
@@ -450,7 +466,9 @@ canvas.addEventListener('touchmove', (e) => {
       camera.updateProjectionMatrix()
 
       const deltaAngle = angle - lastAngle
-      scene.rotation.z += deltaAngle
+      // mapGroup.rotation.z += deltaAngle
+      const pivot = new THREE.Vector3(camera.position.x, camera.position.y, 0)
+      rotateAroundPivot(mapGroup, pivot, deltaAngle)
     }
 
     lastPinchDistance = distance
