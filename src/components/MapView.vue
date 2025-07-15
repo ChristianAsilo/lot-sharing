@@ -143,9 +143,9 @@ onMounted(() => {
         camera.position.set(x, y, 10)
       }
 
-      if (typeof heading === 'number' && !isNaN(heading)) {
-        scene.rotation.z = -THREE.MathUtils.degToRad(heading)
-      }
+    if (!userMovedCamera && typeof heading === 'number' && !isNaN(heading)) {
+      scene.rotation.z = -THREE.MathUtils.degToRad(heading)
+    }
 
       loadAndDrawPoints(coords)
     })
