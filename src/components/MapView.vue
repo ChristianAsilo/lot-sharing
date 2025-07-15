@@ -401,32 +401,60 @@ onMounted(() => {
   }
 }, {passive: false})
 
+// canvas.addEventListener('touchmove', (e) => {
+//   e.preventDefault()
+//   userMovedCamera = true
+//   if (e.touches.length === 1) {
+//     const touch = e.touches[0]
+//     moveDrag(touch.clientX, touch.clientY)
+//   } else if (e.touches.length === 2) {
+//     const newAngle = getAngle(e.touches)
+//     if (lastAngle !== null) {
+//       const delta = newAngle - lastAngle
+//       scene.rotation.z += delta
+//     }
+//     lastAngle = newAngle
+
+//     // 🔍 Pinch-to-zoom logic
+//     const dx = e.touches[0].clientX - e.touches[1].clientX
+//     const dy = e.touches[0].clientY - e.touches[1].clientY
+//     const distance = Math.sqrt(dx * dx + dy * dy)
+
+//     if (lastPinchDistance !== null) {
+//       const zoomFactor = distance / lastPinchDistance
+//       camera.zoom *= zoomFactor
+//       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
+//       camera.updateProjectionMatrix()
+//     }
+//     lastPinchDistance = distance
+//   }
+// }, { passive: false })
 canvas.addEventListener('touchmove', (e) => {
   e.preventDefault()
   userMovedCamera = true
+
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     moveDrag(touch.clientX, touch.clientY)
   } else if (e.touches.length === 2) {
-    const newAngle = getAngle(e.touches)
-    if (lastAngle !== null) {
-      const delta = newAngle - lastAngle
-      scene.rotation.z += delta
-    }
-    lastAngle = newAngle
-
-    // 🔍 Pinch-to-zoom logic
+    const angle = getAngle(e.touches)
     const dx = e.touches[0].clientX - e.touches[1].clientX
     const dy = e.touches[0].clientY - e.touches[1].clientY
     const distance = Math.sqrt(dx * dx + dy * dy)
 
-    if (lastPinchDistance !== null) {
-      const zoomFactor = distance / lastPinchDistance
+    if (lastPinchDistance && lastAngle !== null) {
+      // Simultaneous pinch zoom + rotate
+      const zoomFactor = Math.pow(distance / lastPinchDistance, 0.85) 
       camera.zoom *= zoomFactor
       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
       camera.updateProjectionMatrix()
+
+      const deltaAngle = angle - lastAngle
+      scene.rotation.z += deltaAngle
     }
+
     lastPinchDistance = distance
+    lastAngle = angle
   }
 }, { passive: false })
 
@@ -520,7 +548,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  color: #707070;
+  color: #4285F4;
   cursor: pointer;
   display: flex;
   align-items: center;
