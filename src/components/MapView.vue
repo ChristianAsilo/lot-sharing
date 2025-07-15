@@ -481,6 +481,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+@media (max-width: 500px) {
+  .home-btn {
+    bottom: 2vh;
+    right: 2vw;
+    font-size: 20px;
+  }
+}
+
 .map-wrapper {
   position: fixed;
   inset: 0;
@@ -490,16 +498,16 @@ onBeforeUnmount(() => {
   z-index: 0;
 }
 .home-btn {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;    
-  outline: none;
   position: absolute;
-  bottom: 16px;
-  right: 16px;
-  z-index: 10;
-  width: 60px;
-  height: 60px;
-  font-size: 24px;
+  bottom: 4vh;        
+  right: 4vw;      
+  width: 12vw;       
+  height: 12vw;    
+  max-width: 60px;
+  max-height: 60px;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 6vw;     
   background: rgba(255, 255, 255, 0.7);
   border: none;
   border-radius: 50%;
@@ -510,11 +518,10 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition:
-    background 0.3s ease,
-    box-shadow 0.3s ease,
-    transform 0.1s ease;
+  transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.1s ease;
+  z-index: 10;
 }
+
 
 .home-btn:hover {
   background: rgba(255, 255, 255, 0.9);
