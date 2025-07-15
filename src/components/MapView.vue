@@ -488,8 +488,8 @@ onBeforeUnmount(() => {
 <style scoped>
 @media (max-width: 500px) {
   .home-btn {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
-    right: 4vw;
+    bottom: 80px;
+    right: 2vw;
     font-size: 24px;
     width: 48px;
     height: 48px;
@@ -506,8 +506,8 @@ onBeforeUnmount(() => {
 }
 .home-btn {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
-  right: 4vw;
+  bottom: 80px;
+  right: 2vw;
   width: 14vw;
   height: 14vw;
   max-width: 64px;
@@ -526,7 +526,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.1s ease;
-  z-index: 10000;
+  z-index: 9999;
 }
 
 
