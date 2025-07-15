@@ -68,8 +68,8 @@ onMounted(() => {
   let routeGroup = new THREE.Group()
   scene.add(routeGroup)
 
-  const { x, y } = convertToXY([121.14994, 14.232900])
-  camera.position.set(x, y, 10)
+  // const { x, y } = convertToXY([121.14994, 14.232900])
+  // camera.position.set(x, y, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
   defaultCameraState.position.copy(camera.position)
