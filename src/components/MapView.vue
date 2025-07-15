@@ -155,103 +155,108 @@ onMounted(() => {
   })
 
   function loadAndDrawPoints(startCoord) {
-    while (routeGroup.children.length > 0) {
-      routeGroup.remove(routeGroup.children[0])
-    }
+  // 🛑 Don't redraw the path if the user manually moved the camera
+  if (userMovedCamera) return
 
-    fetch('/assets/json/points.json')
-      .then(res => res.json())
-      .then(data => {
-        const points = data.points
-        const pointMap = new Map()
-        const coordMap = new Map()
-
-        points.forEach(p => {
-          pointMap.set(p.id, p.points)
-          coordMap.set(p.id, p.coordinates)
-        })
-
-        function findNearestPointId(coord) {
-          let nearestId = null
-          let minDist = Infinity
-          for (const [id, coords] of coordMap.entries()) {
-            if (!coords || coords.length < 2) continue
-            const [lon, lat] = coords
-            const dx = lon - coord[0]
-            const dy = lat - coord[1]
-            const dist = dx * dx + dy * dy
-            if (dist < minDist) {
-              minDist = dist
-              nearestId = id
-            }
-          }
-          return nearestId
-        }
-
-        const startId = findNearestPointId(startCoord)
-        const targetId = findNearestPointId(targetCoord)
-
-        const visited = new Set()
-        const parent = new Map()
-        const queue = [startId]
-        visited.add(startId)
-
-        while (queue.length > 0) {
-          const current = queue.shift()
-          if (current === targetId) break
-          const neighbors = pointMap.get(current) || []
-          for (const neighbor of neighbors) {
-            if (!visited.has(neighbor)) {
-              visited.add(neighbor)
-              parent.set(neighbor, current)
-              queue.push(neighbor)
-            }
-          }
-        }
-
-        const path = []
-        let node = targetId
-        while (node !== undefined) {
-          path.unshift(node)
-          node = parent.get(node)
-        }
-
-        const linePoints = path.map(id => {
-          const [lon, lat] = coordMap.get(id)
-          const { x, y } = convertToXY([lon, lat])
-          return new THREE.Vector3(x, y, 0)
-        })
-
-        const positions = []
-        linePoints.forEach(p => positions.push(p.x, p.y, p.z))
-
-        const lineGeometry = new LineGeometry()
-        lineGeometry.setPositions(positions)
-
-        lineMaterial = new LineMaterial({
-          color: 0x4285F4,
-          linewidth: 8,
-          worldUnits: false
-        })
-        lineMaterial.resolution.set(window.innerWidth, window.innerHeight)
-
-        const thickLine = new Line2(lineGeometry, lineMaterial)
-        thickLine.computeLineDistances()
-        routeGroup.add(thickLine)
-
-        const { x: tx, y: ty } = convertToXY(targetCoord)
-        const texture = new THREE.TextureLoader().load('/assets/stickers/location_pin.png')
-        const material = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true
-        })
-        const geometry = new THREE.PlaneGeometry(36, 36) 
-        geometry.translate(0, 18, 0)
-        pinSprite = new THREE.Mesh(geometry, material)
-        pinSprite.position.set(tx, ty, 3) 
-        routeGroup.add(pinSprite)
-      })
+  // Clear old route
+  while (routeGroup.children.length > 0) {
+    routeGroup.remove(routeGroup.children[0])
   }
+
+  fetch('/assets/json/points.json')
+    .then(res => res.json())
+    .then(data => {
+      const points = data.points
+      const pointMap = new Map()
+      const coordMap = new Map()
+
+      points.forEach(p => {
+        pointMap.set(p.id, p.points)
+        coordMap.set(p.id, p.coordinates)
+      })
+
+      function findNearestPointId(coord) {
+        let nearestId = null
+        let minDist = Infinity
+        for (const [id, coords] of coordMap.entries()) {
+          if (!coords || coords.length < 2) continue
+          const [lon, lat] = coords
+          const dx = lon - coord[0]
+          const dy = lat - coord[1]
+          const dist = dx * dx + dy * dy
+          if (dist < minDist) {
+            minDist = dist
+            nearestId = id
+          }
+        }
+        return nearestId
+      }
+
+      const startId = findNearestPointId(startCoord)
+      const targetId = findNearestPointId(targetCoord)
+
+      const visited = new Set()
+      const parent = new Map()
+      const queue = [startId]
+      visited.add(startId)
+
+      while (queue.length > 0) {
+        const current = queue.shift()
+        if (current === targetId) break
+        const neighbors = pointMap.get(current) || []
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor)
+            parent.set(neighbor, current)
+            queue.push(neighbor)
+          }
+        }
+      }
+
+      const path = []
+      let node = targetId
+      while (node !== undefined) {
+        path.unshift(node)
+        node = parent.get(node)
+      }
+
+      const linePoints = path.map(id => {
+        const [lon, lat] = coordMap.get(id)
+        const { x, y } = convertToXY([lon, lat])
+        return new THREE.Vector3(x, y, 0)
+      })
+
+      const positions = []
+      linePoints.forEach(p => positions.push(p.x, p.y, p.z))
+
+      const lineGeometry = new LineGeometry()
+      lineGeometry.setPositions(positions)
+
+      lineMaterial = new LineMaterial({
+        color: 0x4285F4,
+        linewidth: 8,
+        worldUnits: false
+      })
+      lineMaterial.resolution.set(window.innerWidth, window.innerHeight)
+
+      const thickLine = new Line2(lineGeometry, lineMaterial)
+      thickLine.computeLineDistances()
+      routeGroup.add(thickLine)
+
+      const { x: tx, y: ty } = convertToXY(targetCoord)
+      const texture = new THREE.TextureLoader().load('/assets/stickers/location_pin.png')
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true
+      })
+      const geometry = new THREE.PlaneGeometry(36, 36)
+      geometry.translate(0, 18, 0)
+      pinSprite = new THREE.Mesh(geometry, material)
+      pinSprite.position.set(tx, ty, 3)
+      routeGroup.add(pinSprite)
+    })
+}
+
 
   function animate() {
   requestAnimationFrame(animate)
@@ -347,89 +352,89 @@ onMounted(() => {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault())
   
   
-  // Drag and Rotate Events For Mobile
-  // function startDrag(x,y, button = 0) {
-  //   lastMouse.x = x
-  //   lastMouse.y = y
-  //   if (button === 0) isDragging = true
-  //   else if (button === 2) isRotating = true
-  // }
+  //Drag and Rotate Events For Mobile
+  function startDrag(x,y, button = 0) {
+    lastMouse.x = x
+    lastMouse.y = y
+    if (button === 0) isDragging = true
+    else if (button === 2) isRotating = true
+  }
 
-  // function stopDrag() {
-  //   isDragging = false
-  //   isRotating = false
-  // }
-  // function moveDrag(x,y){
-  //   const dx = x - lastMouse.x
-  //   const dy = y - lastMouse.y
-  //   lastMouse.x = x
-  //   lastMouse.y = y
+  function stopDrag() {
+    isDragging = false
+    isRotating = false
+  }
+  function moveDrag(x,y){
+    const dx = x - lastMouse.x
+    const dy = y - lastMouse.y
+    lastMouse.x = x
+    lastMouse.y = y
 
-  //   if (isDragging){
-  //     camera.position.x -= dx / camera.zoom
-  //     camera.position.y += dy / camera.zoom
-  //     clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
-  //     const halfWidth = (window.innerWidth / 2 ) / camera.zoom
-  //     const halfHeight = (window.innerHeight / 2) / camera.zoom
-  //     const xLimit = mapWidth / 2 - halfWidth
-  //     const yLimit = mapHeight / 2 - halfHeight
+    if (isDragging){
+      camera.position.x -= dx / camera.zoom
+      camera.position.y += dy / camera.zoom
+      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
+      const halfWidth = (window.innerWidth / 2 ) / camera.zoom
+      const halfHeight = (window.innerHeight / 2) / camera.zoom
+      const xLimit = mapWidth / 2 - halfWidth
+      const yLimit = mapHeight / 2 - halfHeight
 
-  //     camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
-  //   camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
-  // }
+      camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
+    camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
+  }
   
-  // if (isRotating) {
-  //   scene.rotation.z += dx * 0.005
-  // }
-  // }
-//   canvas.addEventListener('touchstart', (e) => {
-//     userMovedCamera = true
-//   if (e.touches.length === 1) {
-//     const touch = e.touches[0]
-//     startDrag(touch.clientX, touch.clientY)
-//   } else if (e.touches.length === 2) {
-//     lastAngle = getAngle(e.touches)
+  if (isRotating) {
+    scene.rotation.z += dx * 0.005
+  }
+  }
+  canvas.addEventListener('touchstart', (e) => {
+    userMovedCamera = true
+  if (e.touches.length === 1) {
+    const touch = e.touches[0]
+    startDrag(touch.clientX, touch.clientY)
+  } else if (e.touches.length === 2) {
+    lastAngle = getAngle(e.touches)
 
-//     const dx = e.touches[0].clientX - e.touches[1].clientX
-//     const dy = e.touches[0].clientY - e.touches[1].clientY
-//     lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
-//   }
-// }, {passive: false})
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
+  }
+}, {passive: false})
 
-// canvas.addEventListener('touchmove', (e) => {
-//   e.preventDefault()
-//   userMovedCamera = true
-//   if (e.touches.length === 1) {
-//     const touch = e.touches[0]
-//     moveDrag(touch.clientX, touch.clientY)
-//   } else if (e.touches.length === 2) {
-//     const newAngle = getAngle(e.touches)
-//     if (lastAngle !== null) {
-//       const delta = newAngle - lastAngle
-//       scene.rotation.z += delta
-//     }
-//     lastAngle = newAngle
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault()
+  userMovedCamera = true
+  if (e.touches.length === 1) {
+    const touch = e.touches[0]
+    moveDrag(touch.clientX, touch.clientY)
+  } else if (e.touches.length === 2) {
+    const newAngle = getAngle(e.touches)
+    if (lastAngle !== null) {
+      const delta = newAngle - lastAngle
+      scene.rotation.z += delta
+    }
+    lastAngle = newAngle
 
-//     // 🔍 Pinch-to-zoom logic
-//     const dx = e.touches[0].clientX - e.touches[1].clientX
-//     const dy = e.touches[0].clientY - e.touches[1].clientY
-//     const distance = Math.sqrt(dx * dx + dy * dy)
+    // 🔍 Pinch-to-zoom logic
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    const distance = Math.sqrt(dx * dx + dy * dy)
 
-//     if (lastPinchDistance !== null) {
-//       const zoomFactor = distance / lastPinchDistance
-//       camera.zoom *= zoomFactor
-//       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
-//       camera.updateProjectionMatrix()
-//     }
-//     lastPinchDistance = distance
-//   }
-// }, { passive: false })
+    if (lastPinchDistance !== null) {
+      const zoomFactor = distance / lastPinchDistance
+      camera.zoom *= zoomFactor
+      camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
+      camera.updateProjectionMatrix()
+    }
+    lastPinchDistance = distance
+  }
+}, { passive: false })
 
-// canvas.addEventListener('touchend', () => {
-//   stopDrag()
-//   lastAngle = null
-//   lastPinchDistance = null
-// })
+canvas.addEventListener('touchend', () => {
+  stopDrag()
+  lastAngle = null
+  lastPinchDistance = null
+})
 
 window.addEventListener('mouseup', () => {
   isDragging = false
