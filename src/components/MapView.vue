@@ -348,87 +348,88 @@ onMounted(() => {
   
   
   // Drag and Rotate Events For Mobile
-  function startDrag(x,y, button = 0) {
-    lastMouse.x = x
-    lastMouse.y = y
-    if (button === 0) isDragging = true
-    else if (button === 2) isRotating = true
-  }
+  // function startDrag(x,y, button = 0) {
+  //   lastMouse.x = x
+  //   lastMouse.y = y
+  //   if (button === 0) isDragging = true
+  //   else if (button === 2) isRotating = true
+  // }
 
-  function stopDrag() {
-    isDragging = false
-    isRotating = false
-  }
-  function moveDrag(x,y){
-    const dx = x - lastMouse.x
-    const dy = y - lastMouse.y
-    lastMouse.x = x
-    lastMouse.y = y
+  // function stopDrag() {
+  //   isDragging = false
+  //   isRotating = false
+  // }
+  // function moveDrag(x,y){
+  //   const dx = x - lastMouse.x
+  //   const dy = y - lastMouse.y
+  //   lastMouse.x = x
+  //   lastMouse.y = y
 
-    if (isDragging){
-      camera.position.x -= dx / camera.zoom
-      camera.position.y += dy / camera.zoom
-      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
-      const halfWidth = (window.innerWidth / 2 ) / camera.zoom
-      const halfHeight = (window.innerHeight / 2) / camera.zoom
-      const xLimit = mapWidth / 2 - halfWidth
-      const yLimit = mapHeight / 2 - halfHeight
+  //   if (isDragging){
+  //     camera.position.x -= dx / camera.zoom
+  //     camera.position.y += dy / camera.zoom
+  //     clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
+  //     const halfWidth = (window.innerWidth / 2 ) / camera.zoom
+  //     const halfHeight = (window.innerHeight / 2) / camera.zoom
+  //     const xLimit = mapWidth / 2 - halfWidth
+  //     const yLimit = mapHeight / 2 - halfHeight
 
-      camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
-    camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
-  }
+  //     camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
+  //   camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
+  // }
   
-  if (isRotating) {
-    scene.rotation.z += dx * 0.005
-  }
-  }
-  canvas.addEventListener('touchstart', (e) => {
-    userMovedCamera = true
-  if (e.touches.length === 1) {
-    const touch = e.touches[0]
-    startDrag(touch.clientX, touch.clientY)
-  } else if (e.touches.length === 2) {
-    lastAngle = getAngle(e.touches)
+  // if (isRotating) {
+  //   scene.rotation.z += dx * 0.005
+  // }
+  // }
+//   canvas.addEventListener('touchstart', (e) => {
+//     userMovedCamera = true
+//   if (e.touches.length === 1) {
+//     const touch = e.touches[0]
+//     startDrag(touch.clientX, touch.clientY)
+//   } else if (e.touches.length === 2) {
+//     lastAngle = getAngle(e.touches)
 
-    const dx = e.touches[0].clientX - e.touches[1].clientX
-    const dy = e.touches[0].clientY - e.touches[1].clientY
-    lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
-  }
-})
-canvas.addEventListener('touchmove', (e) => {
-  e.preventDefault()
-  userMovedCamera = true
-  if (e.touches.length === 1) {
-    const touch = e.touches[0]
-    moveDrag(touch.clientX, touch.clientY)
-  } else if (e.touches.length === 2) {
-    const newAngle = getAngle(e.touches)
-    if (lastAngle !== null) {
-      const delta = newAngle - lastAngle
-      scene.rotation.z += delta
-    }
-    lastAngle = newAngle
+//     const dx = e.touches[0].clientX - e.touches[1].clientX
+//     const dy = e.touches[0].clientY - e.touches[1].clientY
+//     lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
+//   }
+// }, {passive: false})
 
-    // 🔍 Pinch-to-zoom logic
-    const dx = e.touches[0].clientX - e.touches[1].clientX
-    const dy = e.touches[0].clientY - e.touches[1].clientY
-    const distance = Math.sqrt(dx * dx + dy * dy)
+// canvas.addEventListener('touchmove', (e) => {
+//   e.preventDefault()
+//   userMovedCamera = true
+//   if (e.touches.length === 1) {
+//     const touch = e.touches[0]
+//     moveDrag(touch.clientX, touch.clientY)
+//   } else if (e.touches.length === 2) {
+//     const newAngle = getAngle(e.touches)
+//     if (lastAngle !== null) {
+//       const delta = newAngle - lastAngle
+//       scene.rotation.z += delta
+//     }
+//     lastAngle = newAngle
 
-    if (lastPinchDistance !== null) {
-      const zoomFactor = distance / lastPinchDistance
-      camera.zoom *= zoomFactor
-      camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
-      camera.updateProjectionMatrix()
-    }
-    lastPinchDistance = distance
-  }
-}, { passive: false })
+//     // 🔍 Pinch-to-zoom logic
+//     const dx = e.touches[0].clientX - e.touches[1].clientX
+//     const dy = e.touches[0].clientY - e.touches[1].clientY
+//     const distance = Math.sqrt(dx * dx + dy * dy)
 
-canvas.addEventListener('touchend', () => {
-  stopDrag()
-  lastAngle = null
-  lastPinchDistance = null
-})
+//     if (lastPinchDistance !== null) {
+//       const zoomFactor = distance / lastPinchDistance
+//       camera.zoom *= zoomFactor
+//       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
+//       camera.updateProjectionMatrix()
+//     }
+//     lastPinchDistance = distance
+//   }
+// }, { passive: false })
+
+// canvas.addEventListener('touchend', () => {
+//   stopDrag()
+//   lastAngle = null
+//   lastPinchDistance = null
+// })
 
 window.addEventListener('mouseup', () => {
   isDragging = false
@@ -513,7 +514,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  color: #333;
+  color: #8d0c0c;
   cursor: pointer;
   display: flex;
   align-items: center;
