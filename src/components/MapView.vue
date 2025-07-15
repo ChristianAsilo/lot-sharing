@@ -19,6 +19,7 @@ const targetCoord = [121.152172, 14.233072]
 const gateCoord = [121.149852, 14.234344]
 let liveCoords;
 let coordMap; 
+const mapInitialized = ref(false)
 let userMovedCamera = false
 const defaultCameraState = {
   position: new THREE.Vector3(),
@@ -45,6 +46,42 @@ function convertToXY([lon, lat]) {
   }
 
 onMounted(() => {
+  checkPermissionAndInit()
+})
+
+function checkPermissionAndInit() {
+  navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+    handlePermissionState(result.state)
+
+    result.onchange = () => {
+      handlePermissionState(result.state)
+    }
+  })
+}
+
+function handlePermissionState(state) {
+  if (state === 'granted') {
+    initiateMap()
+  } else if (state === 'prompt') {
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        initiateMap()
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          console.log('User denied location permission.')
+        }
+      }
+    )
+  } else if (state === 'denied') {
+    console.log('Permission denied')
+    mapInitialized.value = false
+  }
+}
+
+function initiateMap(){
+  if (mapInitialized.value) return
+  mapInitialized.value = true
   const canvas = canvasRef.value
   if (!canvas) return
 
@@ -68,8 +105,6 @@ onMounted(() => {
   let routeGroup = new THREE.Group()
   scene.add(routeGroup)
 
-  // const { x, y } = convertToXY([121.14994, 14.232900])
-  // camera.position.set(x, y, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
   defaultCameraState.position.copy(camera.position)
@@ -80,75 +115,74 @@ onMounted(() => {
     mapWidth = texture.image.width
     mapHeight = texture.image.height
 
-    const mapCenter = new THREE.Vector3(0, 0, 0) 
     const geometry = new THREE.PlaneGeometry(mapWidth, mapHeight)
     const material = new THREE.MeshBasicMaterial({ map: texture })
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
-    watchId = watchUserLocation((pos) => {
-  const { longitude, latitude, heading } = pos.coords
-  liveCoords = [longitude, latitude]
-
-
-  fetch('/assets/json/points.json')
-    .then(res => res.json())
-    .then(data => {
-       coordMap = new Map()
-      data.points.forEach(p => {
-        coordMap.set(p.id, p.coordinates)
-      })
-
-      const threshold = 0.0003 // ~30 meters
-      const distToNearest = findNearestPoint(liveCoords, coordMap)
-
-      const coords = distToNearest < threshold ? liveCoords : gateCoord
-      const { x, y } = convertToXY(coords)
-
-      // --- everything that uses coords, x, y should be inside here ---
-      if (!locationDot) {
-        const dot = new THREE.Mesh(
-          new THREE.CircleGeometry(8, 32),
-          new THREE.MeshBasicMaterial({ color: 0x4285F4 })
-        )
-
-        const beamShape = new THREE.Shape()
-        const radius = 30
-        const angleSpan = Math.PI 
-
-        beamShape.moveTo(0, 0)
-        beamShape.absarc(0, 0, radius, -angleSpan, angleSpan, false)
-        beamShape.lineTo(0, 0)
-
-        const beamGeo = new THREE.ShapeGeometry(beamShape)
-        const beamMat = new THREE.MeshBasicMaterial({
-          color: 0x4285f4,
-          transparent: true,
-          opacity: 0.3,
-          depthWrite: false,
-        })
-        const beam = new THREE.Mesh(beamGeo, beamMat)
-        beam.name = 'directionBeam'
-        beam.rotation.z = Math.PI / 2
-
-        locationDot = new THREE.Group()
-        locationDot.add(dot)
-        locationDot.add(beam)
-        locationDot.position.set(x, y, 1.5)
-        scene.add(locationDot)
-      } else {
-        locationDot.position.set(x, y, 1.5)
-      }
-
-      if (!userMovedCamera) {
-        camera.position.set(x, y, 10)
-      }
-
-    if (!userMovedCamera && typeof heading === 'number' && !isNaN(heading)) {
-      scene.rotation.z = -THREE.MathUtils.degToRad(heading)
+    if (mapInitialized.value) {
+      
     }
+    watchId = watchUserLocation((pos) => {
+      const { longitude, latitude, heading } = pos.coords
+      liveCoords = [longitude, latitude]
+      fetch('/assets/json/points.json')
+        .then(res => res.json())
+        .then(data => {
+          coordMap = new Map()
+          data.points.forEach(p => {
+            coordMap.set(p.id, p.coordinates)
+          })
 
-      loadAndDrawPoints(coords)
-    })
+          const threshold = 0.0003 // ~30 meters
+          const distToNearest = findNearestPoint(liveCoords, coordMap)
+
+          const coords = distToNearest < threshold ? liveCoords : gateCoord
+          const { x, y } = convertToXY(coords)
+
+          // --- everything that uses coords, x, y should be inside here ---
+          if (!locationDot) {
+            const dot = new THREE.Mesh(
+              new THREE.CircleGeometry(8, 32),
+              new THREE.MeshBasicMaterial({ color: 0x4285F4 })
+            )
+
+            const beamShape = new THREE.Shape()
+            const radius = 30
+            const angleSpan = Math.PI 
+
+            beamShape.moveTo(0, 0)
+            beamShape.absarc(0, 0, radius, -angleSpan, angleSpan, false)
+            beamShape.lineTo(0, 0)
+
+            const beamGeo = new THREE.ShapeGeometry(beamShape)
+            const beamMat = new THREE.MeshBasicMaterial({
+              color: 0x4285f4,
+              transparent: true,
+              opacity: 0.3,
+              depthWrite: false,
+            })
+            const beam = new THREE.Mesh(beamGeo, beamMat)
+            beam.name = 'directionBeam'
+            beam.rotation.z = Math.PI / 2
+
+            locationDot = new THREE.Group()
+            locationDot.add(dot)
+            locationDot.add(beam)
+            locationDot.position.set(x, y, 1.5)
+            scene.add(locationDot)
+          } else {
+            locationDot.position.set(x, y, 1.5)
+          }
+
+          if (!userMovedCamera) {
+            camera.position.set(x, y, 10)
+          }
+
+        if (!userMovedCamera && typeof heading === 'number' && !isNaN(heading)) {
+          scene.rotation.z = -THREE.MathUtils.degToRad(heading)
+        }
+          loadAndDrawPoints(coords)
+        })
 })
 
 
@@ -447,9 +481,7 @@ function getAngle(touches) {
   return Math.atan2(dy, dx)
 }
 
-
-})
-
+}
 function resetCamera() {
   if (!camera || !scene) return
 
@@ -546,6 +578,46 @@ canvas {
   width: 100%;
   height: 100%;
 }
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.dialog-content {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-content h3, p {
+  color: black;
+  margin-bottom: 12px;
+}
+
+.dialog-actions {
+  margin-top: 20px;
+}
+
+.dialog-actions button {
+  background: #4285f4;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
 </style>
 <template>
   <div class="map-wrapper">
@@ -554,5 +626,16 @@ canvas {
       <span class="material-icons">my_location</span>
     </button>
   </div>
+
+  <div v-if="!mapInitialized" class="dialog-overlay">
+    <div class="dialog-content">
+      <h3>Location Permission Needed</h3>
+      <p>This app uses your location to show where you are and help guide your route. Please enable location access in your browser settings.</p>
+      <div class="dialog-actions">
+        <button @click="retryRequest">Try Again</button>
+      </div>
+    </div>
+  </div>
 </template>
+
 
