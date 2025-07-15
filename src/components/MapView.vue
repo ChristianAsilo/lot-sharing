@@ -517,7 +517,42 @@ onBeforeUnmount(() => {
   overflow: hidden;
   z-index: 0;
 }
+.home-btn {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;    
+  outline: none;
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  border: none;
+  border-radius: 50%;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.1s ease;
+}
 
+.home-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+.home-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
 canvas {
   display: block;
   width: 100%;
