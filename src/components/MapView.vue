@@ -10,7 +10,6 @@ const canvasRef = ref(null)
 let watchId = null
 let camera
 let scene
-let mapGroup
 let locationDot
 const centerLat = 14.233539920666581
 const centerLon = 121.15133389733768
@@ -51,13 +50,14 @@ onMounted(() => {
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
+  
   scene = new THREE.Scene()
   let mapWidth
   let mapHeight
   let lineMaterial
   let pinSprite
   let lastPinchDistance = null
-  mapGroup = new THREE.Group()
+
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2, window.innerWidth / 2,
     window.innerHeight / 2, window.innerHeight / -2,
@@ -74,7 +74,7 @@ onMounted(() => {
   camera.updateProjectionMatrix()
   defaultCameraState.position.copy(camera.position)
   defaultCameraState.zoom = camera.zoom
-  defaultCameraState.rotation = mapGroup.rotation.z
+  defaultCameraState.rotation = scene.rotation.z
   const loader = new THREE.TextureLoader()
   loader.load('/assets/images/cabuyao_map_2000m.jpg', (texture) => {
     mapWidth = texture.image.width
@@ -85,12 +85,6 @@ onMounted(() => {
     const material = new THREE.MeshBasicMaterial({ map: texture })
     const mapPlane = new THREE.Mesh(geometry, material)
     scene.add(mapPlane)
-
-    mapGroup = new THREE.Group()
-    scene.add(mapGroup)
-    mapGroup.add(mapPlane)
-    mapGroup.add(locationDot)
-    mapGroup.add(routeGroup)
     watchId = watchUserLocation((pos) => {
   const { longitude, latitude, heading } = pos.coords
   liveCoords = [longitude, latitude]
@@ -150,7 +144,7 @@ onMounted(() => {
       }
 
     if (!userMovedCamera && typeof heading === 'number' && !isNaN(heading)) {
-      mapGroup.rotation.z = -THREE.MathUtils.degToRad(heading)
+      scene.rotation.z = -THREE.MathUtils.degToRad(heading)
     }
 
       loadAndDrawPoints(coords)
@@ -274,10 +268,10 @@ onMounted(() => {
   renderer.render(scene, camera)
 
   if (locationDot) {
-  locationDot.rotation.z = -mapGroup.rotation.z
+  locationDot.rotation.z = -scene.rotation.z
   }
   if (pinSprite) {
-    pinSprite.rotation.z = -mapGroup.rotation.z 
+    pinSprite.rotation.z = -scene.rotation.z 
   }
 }
 
@@ -339,7 +333,7 @@ onMounted(() => {
       scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
       scene.position.add(center)
 
-      mapGroup.rotation.z += angle
+      scene.rotation.z += angle
     }
   })
 
@@ -390,20 +384,9 @@ onMounted(() => {
   }
   
   if (isRotating) {
-    mapGroup.rotation.z += dx * 0.005
+    scene.rotation.z += dx * 0.005
   }
   }
-  function rotateAroundPivot(group, pivot, angle) {
-  const m = new THREE.Matrix4()
-  m.makeTranslation(-pivot.x, -pivot.y, 0)
-  group.applyMatrix4(m)
-
-  group.rotation.z += angle
-
-  m.makeTranslation(pivot.x, pivot.y, 0)
-  group.applyMatrix4(m)
-}
-
   canvas.addEventListener('touchstart', (e) => {
     userMovedCamera = true
   if (e.touches.length === 1) {
@@ -418,71 +401,39 @@ onMounted(() => {
   }
 }, {passive: false})
 
-// canvas.addEventListener('touchmove', (e) => {
-//   e.preventDefault()
-//   userMovedCamera = true
-//   if (e.touches.length === 1) {
-//     const touch = e.touches[0]
-//     moveDrag(touch.clientX, touch.clientY)
-//   } else if (e.touches.length === 2) {
-//     const newAngle = getAngle(e.touches)
-//     if (lastAngle !== null) {
-//       const delta = newAngle - lastAngle
-//       mapGroup.rotation.z += delta
-//     }
-//     lastAngle = newAngle
-
-//     // 🔍 Pinch-to-zoom logic
-//     const dx = e.touches[0].clientX - e.touches[1].clientX
-//     const dy = e.touches[0].clientY - e.touches[1].clientY
-//     const distance = Math.sqrt(dx * dx + dy * dy)
-
-//     if (lastPinchDistance !== null) {
-//       const zoomFactor = distance / lastPinchDistance
-//       camera.zoom *= zoomFactor
-//       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
-//       camera.updateProjectionMatrix()
-//     }
-//     lastPinchDistance = distance
-//   }
-// }, { passive: false })
 canvas.addEventListener('touchmove', (e) => {
   e.preventDefault()
   userMovedCamera = true
-
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     moveDrag(touch.clientX, touch.clientY)
   } else if (e.touches.length === 2) {
-    const angle = getAngle(e.touches)
+    const newAngle = getAngle(e.touches)
+    if (lastAngle !== null) {
+      const delta = newAngle - lastAngle
+      scene.rotation.z += delta
+    }
+    lastAngle = newAngle
+
+    // 🔍 Pinch-to-zoom logic
     const dx = e.touches[0].clientX - e.touches[1].clientX
     const dy = e.touches[0].clientY - e.touches[1].clientY
     const distance = Math.sqrt(dx * dx + dy * dy)
 
-    if (lastPinchDistance && lastAngle !== null) {
-      // Simultaneous pinch zoom + rotate
-      const zoomFactor = Math.pow(distance / lastPinchDistance, 0.85) 
+    if (lastPinchDistance !== null) {
+      const zoomFactor = distance / lastPinchDistance
       camera.zoom *= zoomFactor
       camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
       camera.updateProjectionMatrix()
-
-      const deltaAngle = angle - lastAngle
-      // mapGroup.rotation.z += deltaAngle
-      const pivot = new THREE.Vector3(camera.position.x, camera.position.y, 0)
-      rotateAroundPivot(mapGroup, pivot, deltaAngle)
     }
-
     lastPinchDistance = distance
-    lastAngle = angle
   }
 }, { passive: false })
 
-canvas.addEventListener('touchend', (e) => {
-  if (e.touches.length === 0) {
-    stopDrag()
-    lastAngle = null
-    lastPinchDistance = null
-  }
+canvas.addEventListener('touchend', () => {
+  stopDrag()
+  lastAngle = null
+  lastPinchDistance = null
 })
 
 window.addEventListener('mouseup', () => {
@@ -503,7 +454,7 @@ function resetCamera() {
   if (!camera || !scene) return
 
   // Reset rotation first
-  mapGroup.rotation.z = 0
+  scene.rotation.z = 0
 
   // Convert gateCoord to world XY
   const { x, y } = convertToXY(gateCoord)
