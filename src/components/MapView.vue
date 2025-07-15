@@ -19,7 +19,7 @@ const targetCoord = [121.152172, 14.233072]
 const gateCoord = [121.149852, 14.234344]
 let liveCoords;
 let coordMap; 
-
+let userMovedCamera = false
 const defaultCameraState = {
   position: new THREE.Vector3(),
   zoom: 1,
@@ -56,6 +56,7 @@ onMounted(() => {
   let mapHeight
   let lineMaterial
   let pinSprite
+  let lastPinchDistance = null
 
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2, window.innerWidth / 2,
@@ -87,7 +88,6 @@ onMounted(() => {
     watchId = watchUserLocation((pos) => {
   const { longitude, latitude, heading } = pos.coords
   liveCoords = [longitude, latitude]
-
 
 
   fetch('/assets/json/points.json')
@@ -139,7 +139,9 @@ onMounted(() => {
         locationDot.position.set(x, y, 1.5)
       }
 
-      camera.position.set(x, y, 10)
+      if (!userMovedCamera) {
+        camera.position.set(x, y, 10)
+      }
 
       if (typeof heading === 'number' && !isNaN(heading)) {
         scene.rotation.z = -THREE.MathUtils.degToRad(heading)
@@ -381,17 +383,21 @@ onMounted(() => {
   }
   }
   canvas.addEventListener('touchstart', (e) => {
+    userMovedCamera = true
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     startDrag(touch.clientX, touch.clientY)
-  } else if (e.touches.length === 2){
+  } else if (e.touches.length === 2) {
     lastAngle = getAngle(e.touches)
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    lastPinchDistance = Math.sqrt(dx * dx + dy * dy)
   }
 })
 canvas.addEventListener('touchmove', (e) => {
   e.preventDefault()
+  userMovedCamera = true
   if (e.touches.length === 1) {
     const touch = e.touches[0]
     moveDrag(touch.clientX, touch.clientY)
@@ -399,20 +405,29 @@ canvas.addEventListener('touchmove', (e) => {
     const newAngle = getAngle(e.touches)
     if (lastAngle !== null) {
       const delta = newAngle - lastAngle
-      const center = new THREE.Vector3(0, 0, 0)
-
-      scene.position.sub(center)
-      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta)
-      scene.position.add(center)
-
       scene.rotation.z += delta
     }
     lastAngle = newAngle
+
+    // 🔍 Pinch-to-zoom logic
+    const dx = e.touches[0].clientX - e.touches[1].clientX
+    const dy = e.touches[0].clientY - e.touches[1].clientY
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    if (lastPinchDistance !== null) {
+      const zoomFactor = distance / lastPinchDistance
+      camera.zoom *= zoomFactor
+      camera.zoom = Math.max(0.5, Math.min(5, camera.zoom))
+      camera.updateProjectionMatrix()
+    }
+    lastPinchDistance = distance
   }
-}, { passive: false})
-canvas.addEventListener('touchend', (e) => {
+}, { passive: false })
+
+canvas.addEventListener('touchend', () => {
   stopDrag()
   lastAngle = null
+  lastPinchDistance = null
 })
 
 window.addEventListener('mouseup', () => {
@@ -442,7 +457,7 @@ function resetCamera() {
   camera.position.set(x, y, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
-
+  userMovedCamera = false
 }
 
 function clampCameraToRadius(center, radius) {
@@ -457,49 +472,6 @@ function clampCameraToRadius(center, radius) {
     camera.position.x = center.x + dx * scale
     camera.position.y = center.y + dy * scale
   }
-}
-
-function clampCameraWithinMap(camera, mapWidth, mapHeight, rotationZ) {
-  const halfScreenW = (window.innerWidth / 2) / camera.zoom
-  const halfScreenH = (window.innerHeight / 2) / camera.zoom
-
-  // Calculate axis-aligned bounds of the map after rotation
-  const cosR = Math.cos(rotationZ)
-  const sinR = Math.sin(rotationZ)
-
-  const corners = [
-    new THREE.Vector2(-mapWidth / 2, -mapHeight / 2),
-    new THREE.Vector2(mapWidth / 2, -mapHeight / 2),
-    new THREE.Vector2(mapWidth / 2, mapHeight / 2),
-    new THREE.Vector2(-mapWidth / 2, mapHeight / 2),
-  ].map((corner) => {
-    return new THREE.Vector2(
-      corner.x * cosR - corner.y * sinR,
-      corner.x * sinR + corner.y * cosR
-    )
-  })
-
-  // Compute AABB from rotated corners
-  let minX = Infinity,
-    maxX = -Infinity,
-    minY = Infinity,
-    maxY = -Infinity
-
-  corners.forEach((c) => {
-    minX = Math.min(minX, c.x)
-    maxX = Math.max(maxX, c.x)
-    minY = Math.min(minY, c.y)
-    maxY = Math.max(maxY, c.y)
-  })
-
-  const xLimitMin = minX + halfScreenW
-  const xLimitMax = maxX - halfScreenW
-  const yLimitMin = minY + halfScreenH
-  const yLimitMax = maxY - halfScreenH
-
-  // Clamp camera position directly (no unrotating needed)
-  camera.position.x = Math.max(xLimitMin, Math.min(xLimitMax, camera.position.x))
-  camera.position.y = Math.max(yLimitMin, Math.min(yLimitMax, camera.position.y))
 }
 
 
@@ -554,6 +526,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 canvas {
+  touch-action: none;
+  pointer-events: auto;
   display: block;
   width: 100%;
   height: 100%;
