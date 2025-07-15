@@ -463,7 +463,6 @@ function resetCamera() {
   camera.position.set(x, y, 10)
   camera.zoom = 1
   camera.updateProjectionMatrix()
-  userMovedCamera = false
 }
 
 function clampCameraToRadius(center, radius) {
@@ -489,9 +488,11 @@ onBeforeUnmount(() => {
 <style scoped>
 @media (max-width: 500px) {
   .home-btn {
-    bottom: 2vh;
-    right: 2vw;
-    font-size: 20px;
+    bottom: 6vh;
+    right: 4vw;
+    font-size: 24px;
+    width: 48px;
+    height: 48px;
   }
 }
 
@@ -505,27 +506,27 @@ onBeforeUnmount(() => {
 }
 .home-btn {
   position: absolute;
-  bottom: 4vh;        
-  right: 4vw;      
-  width: 12vw;       
-  height: 12vw;    
-  max-width: 60px;
-  max-height: 60px;
-  min-width: 40px;
-  min-height: 40px;
-  font-size: 6vw;     
-  background: rgba(255, 255, 255, 0.7);
+  bottom: 4vh;
+  right: 4vw;
+  width: 14vw;
+  height: 14vw;
+  max-width: 64px;
+  max-height: 64px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 6vw;
+  background: rgba(255, 255, 255, 0.9);
   border: none;
   border-radius: 50%;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  color: #8d0c0c;
+  color: #707070;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.1s ease;
-  z-index: 10;
+  z-index: 9999;
 }
 
 
@@ -540,7 +541,7 @@ onBeforeUnmount(() => {
 }
 canvas {
   touch-action: none;
-  pointer-events: auto;
+  pointer-events: none;
   display: block;
   width: 100%;
   height: 100%;
