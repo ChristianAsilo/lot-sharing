@@ -11,9 +11,13 @@ let watchId = null
 let camera
 let scene
 let locationDot
+let mapWidth
+let mapHeight
+let boundingBoxCorners = []
 const centerLat = 14.233539920666581
 const centerLon = 121.15133389733768
 const scale = 385000
+const mapCenter = convertToXY([centerLon, centerLat])
 
 const targetCoord = [121.152172, 14.233072]
 const gateCoord = [121.149852, 14.234344]
@@ -89,8 +93,6 @@ function initiateMap(){
   renderer.setSize(window.innerWidth, window.innerHeight)
   
   scene = new THREE.Scene()
-  let mapWidth
-  let mapHeight
   let lineMaterial
   let pinSprite
   let lastPinchDistance = null
@@ -188,11 +190,9 @@ function initiateMap(){
 
   })
 
-  function loadAndDrawPoints(startCoord) {
-  // 🛑 Don't redraw the path if the user manually moved the camera
+function loadAndDrawPoints(startCoord) {
   if (userMovedCamera) return
 
-  // Clear old route
   while (routeGroup.children.length > 0) {
     routeGroup.remove(routeGroup.children[0])
   }
@@ -209,6 +209,47 @@ function initiateMap(){
         coordMap.set(p.id, p.coordinates)
       })
 
+      // --- 🔺 Bounding box logic ---
+      const padding = 700
+      let minX = Infinity, maxX = -Infinity
+      let minY = Infinity, maxY = -Infinity
+
+      coordMap.forEach((coords) => {
+        const { x, y } = convertToXY(coords)
+        minX = Math.min(minX, x)
+        maxX = Math.max(maxX, x)
+        minY = Math.min(minY, y)
+        maxY = Math.max(maxY, y)
+      })
+
+      minX -= padding
+      maxX += padding
+      minY -= padding
+      maxY += padding
+
+      // Store red box corners for clamping (global var)
+      boundingBoxCorners = [
+        new THREE.Vector2(minX, minY),
+        new THREE.Vector2(maxX, minY),
+        new THREE.Vector2(maxX, maxY),
+        new THREE.Vector2(minX, maxY)
+      ]
+
+      // Red Line Geometry
+      const boxGeometry = new THREE.BufferGeometry()
+      const boxPoints = new Float32Array([
+        minX, minY, 1,
+        maxX, minY, 1,
+        maxX, maxY, 1,
+        minX, maxY, 1,
+        minX, minY, 1, // Close the loop
+      ])
+      boxGeometry.setAttribute('position', new THREE.BufferAttribute(boxPoints, 3))
+      const boxMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 })
+      const boundingBox = new THREE.Line(boxGeometry, boxMaterial)
+      routeGroup.add(boundingBox)
+
+      // --- 🔁 Dijkstra Route Drawing ---
       function findNearestPointId(coord) {
         let nearestId = null
         let minDist = Infinity
@@ -342,45 +383,46 @@ function initiateMap(){
   })
 
   window.addEventListener('mousemove', (e) => {
-  const dx = e.clientX - lastMouse.x
-  const dy = e.clientY - lastMouse.y
+    // const dx = e.clientX - lastMouse.x
+    // const dy = e.clientY - lastMouse.y
 
-  if (isDragging) {
-    camera.position.x -= dx / camera.zoom
-    camera.position.y += dy / camera.zoom
+    // if (isDragging) {
+    //   const angle = scene.rotation.z
+    //   const cos = Math.cos(angle)
+    //   const sin = Math.sin(angle)
 
-    clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
+    //   const rotatedDx = cos * dx + sin * dy
+    //   const rotatedDy = -sin * dx + cos * dy
 
-    const halfWidth = (window.innerWidth / 2) / camera.zoom
-    const halfHeight = (window.innerHeight / 2) / camera.zoom
+    //   camera.position.x -= rotatedDx / camera.zoom
+    //   camera.position.y += rotatedDy / camera.zoom
 
-    camera.position.x = Math.max(-mapWidth / 2 + halfWidth, Math.min(mapWidth / 2 - halfWidth, camera.position.x))
-    camera.position.y = Math.max(-mapHeight / 2 + halfHeight, Math.min(mapHeight / 2 - halfHeight, camera.position.y))
-  }
+    //   clampCameraToRedBox()
+    // }
 
-  if (isRotating) {
-    const centerX = window.innerWidth / 2
-    const centerY = window.innerHeight / 2
+    // // (optional) If you're not using right-click rotation, this can stay commented
+    // if (isRotating) {
+    //   const centerX = window.innerWidth / 2
+    //   const centerY = window.innerHeight / 2
 
-    const prevVec = new THREE.Vector2(lastMouse.x - centerX, lastMouse.y - centerY)
-    const currVec = new THREE.Vector2(e.clientX - centerX, e.clientY - centerY)
+    //   const prevVec = new THREE.Vector2(lastMouse.x - centerX, lastMouse.y - centerY)
+    //   const currVec = new THREE.Vector2(e.clientX - centerX, e.clientY - centerY)
 
-    const prevAngle = -Math.atan2(prevVec.y, prevVec.x)
-    const currAngle = -Math.atan2(currVec.y, currVec.x)
-    const deltaAngle = currAngle - prevAngle
+    //   const prevAngle = -Math.atan2(prevVec.y, prevVec.x)
+    //   const currAngle = -Math.atan2(currVec.y, currVec.x)
+    //   const deltaAngle = currAngle - prevAngle
 
-    const center = new THREE.Vector3(camera.position.x, camera.position.y, 0)
-    scene.position.sub(center)
-    scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle)
-    scene.position.add(center)
+    //   const center = new THREE.Vector3(mapCenter.x, mapCenter.y, 0)
+    //   scene.position.sub(center)
+    //   scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle)
+    //   scene.position.add(center)
 
-    console.log(deltaAngle);
-    
-    scene.rotation.z += deltaAngle
-  }
-  lastMouse.x = e.clientX
-  lastMouse.y = e.clientY
-})
+    //   scene.rotation.z += deltaAngle
+    // }
+
+    // lastMouse.x = e.clientX
+    // lastMouse.y = e.clientY
+  })
 
 
   canvas.addEventListener(
@@ -417,21 +459,29 @@ function initiateMap(){
   lastMouse.y = y
 
   if (isDragging) {
-    camera.position.x -= dx / camera.zoom
-    camera.position.y += dy / camera.zoom
+//  const angle = scene.rotation.z
+// const cos = Math.cos(angle)
+// const sin = Math.sin(angle)
 
-    clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
+// const rotatedDx = cos * dx + sin * dy
+// const rotatedDy = -sin * dx + cos * dy
 
-    const halfWidth = (window.innerWidth / 2) / camera.zoom
-    const halfHeight = (window.innerHeight / 2) / camera.zoom
-    const xLimit = mapWidth / 2 - halfWidth
-    const yLimit = mapHeight / 2 - halfHeight
+// camera.position.x -= rotatedDx / camera.zoom
+// camera.position.y += rotatedDy / camera.zoom
 
-    camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
-    camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
+
+    // clampCameraToRadius()
+    // clampCameraToRedBox() 
+    // const halfWidth = (window.innerWidth / 2) / camera.zoom
+    // const halfHeight = (window.innerHeight / 2) / camera.zoom
+    // const xLimit = mapWidth / 2 - halfWidth
+    // const yLimit = mapHeight / 2 - halfHeight
+
+    // camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
+    // camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
   }
   if (isRotating) {
-    scene.rotation.z += dx * 0.005
+    // scene.rotation.z += dx * 0.005
   }
 }
   canvas.addEventListener('touchstart', (e) => {
@@ -457,8 +507,13 @@ canvas.addEventListener('touchmove', (e) => {
   } else if (e.touches.length === 2) {
     const newAngle = getAngle(e.touches)
     if (lastAngle !== null) {
-      const delta = -newAngle - -lastAngle
-      scene.rotation.z += delta
+      // const delta = -newAngle - -lastAngle
+      // scene.rotation.z += delta
+      const center = new THREE.Vector3(mapCenter.x, mapCenter.y, 0)
+    scene.position.sub(center)
+    scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta)
+    scene.position.add(center)
+    scene.rotation.z += delta
     }
     lastAngle = newAngle
 
@@ -510,18 +565,60 @@ function resetCamera() {
   camera.updateProjectionMatrix()
 }
 
-function clampCameraToRadius(center, radius) {
-  const dx = camera.position.x - center.x
-  const dy = camera.position.y - center.y
-  const distSq = dx * dx + dy * dy
-  const radiusSq = radius * radius
+function clampCameraToRadius() {
+  const halfWidth = (window.innerWidth / camera.zoom) / 2;
+  const halfHeight = (window.innerHeight / camera.zoom) / 2;
 
-  if (distSq > radiusSq) {
-    const dist = Math.sqrt(distSq)
-    const scale = radius / dist
-    camera.position.x = center.x + dx * scale
-    camera.position.y = center.y + dy * scale
-  }
+  const xMin = -mapWidth / 4 + halfWidth;
+  const xMax = mapWidth / 4 - halfWidth;
+  const yMin = -mapHeight / 4 + halfHeight;
+  const yMax = mapHeight / 4 - halfHeight;
+  
+  camera.position.x = Math.max(xMin, Math.min(xMax, camera.position.x));
+  camera.position.y = Math.max(yMin, Math.min(yMax, camera.position.y));
+}
+
+function clampCameraToRedBox() {
+  if (boundingBoxCorners.length === 0 || !camera) return
+
+  const angle = scene.rotation.z
+  const cos = Math.cos(-angle)
+  const sin = Math.sin(-angle)
+
+  const camX = camera.position.x
+  const camY = camera.position.y
+
+  // Rotate camera center into axis-aligned space
+  const rotatedCamX = cos * camX - sin * camY
+  const rotatedCamY = sin * camX + cos * camY
+
+  const halfW = (window.innerWidth / camera.zoom) / 2
+  const halfH = (window.innerHeight / camera.zoom) / 2
+
+  // Rotate bounding box corners
+  const rotatedBox = boundingBoxCorners.map(p => {
+    return new THREE.Vector2(
+      cos * p.x - sin * p.y,
+      sin * p.x + cos * p.y
+    )
+  })
+
+  const xVals = rotatedBox.map(p => p.x)
+  const yVals = rotatedBox.map(p => p.y)
+
+  const boxMinX = Math.min(...xVals)
+  const boxMaxX = Math.max(...xVals)
+  const boxMinY = Math.min(...yVals)
+  const boxMaxY = Math.max(...yVals)
+
+  // Clamp camera center so that view edges stay inside the box
+  const clampedX = Math.max(boxMinX + halfW, Math.min(boxMaxX - halfW, rotatedCamX))
+  const clampedY = Math.max(boxMinY + halfH, Math.min(boxMaxY - halfH, rotatedCamY))
+
+  const worldX = Math.cos(angle) * clampedX - Math.sin(angle) * clampedY
+  const worldY = Math.sin(angle) * clampedX + Math.cos(angle) * clampedY
+
+  camera.position.set(worldX, worldY, camera.position.z)
 }
 
 
