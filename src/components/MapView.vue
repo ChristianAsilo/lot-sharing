@@ -342,34 +342,46 @@ function initiateMap(){
   })
 
   window.addEventListener('mousemove', (e) => {
-    const dx = e.clientX - lastMouse.x
-    const dy = e.clientY - lastMouse.y
-    lastMouse.x = e.clientX
-    lastMouse.y = e.clientY
-    if (isDragging) {
-      camera.position.x -= dx / camera.zoom
-      camera.position.y += dy / camera.zoom
-      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
-      const halfWidth = (window.innerWidth / 2) / camera.zoom
-      const halfHeight = (window.innerHeight / 2) / camera.zoom
+  const dx = e.clientX - lastMouse.x
+  const dy = e.clientY - lastMouse.y
 
-      const xLimit = mapWidth / 2 - halfWidth
-      const yLimit = mapHeight / 2 - halfHeight
+  if (isDragging) {
+    camera.position.x -= dx / camera.zoom
+    camera.position.y += dy / camera.zoom
 
-      camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
-      camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
-    }
-      if (isRotating) {
-      const angle = dx * 0.005
-      const center = new THREE.Vector3(0, 0, 0)
+    clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
 
-      scene.position.sub(center)
-      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), angle)
-      scene.position.add(center)
+    const halfWidth = (window.innerWidth / 2) / camera.zoom
+    const halfHeight = (window.innerHeight / 2) / camera.zoom
 
-      scene.rotation.z += angle
-    }
-  })
+    camera.position.x = Math.max(-mapWidth / 2 + halfWidth, Math.min(mapWidth / 2 - halfWidth, camera.position.x))
+    camera.position.y = Math.max(-mapHeight / 2 + halfHeight, Math.min(mapHeight / 2 - halfHeight, camera.position.y))
+  }
+
+  if (isRotating) {
+    const centerX = window.innerWidth / 2
+    const centerY = window.innerHeight / 2
+
+    const prevVec = new THREE.Vector2(lastMouse.x - centerX, lastMouse.y - centerY)
+    const currVec = new THREE.Vector2(e.clientX - centerX, e.clientY - centerY)
+
+    const prevAngle = -Math.atan2(prevVec.y, prevVec.x)
+    const currAngle = -Math.atan2(currVec.y, currVec.x)
+    const deltaAngle = currAngle - prevAngle
+
+    const center = new THREE.Vector3(camera.position.x, camera.position.y, 0)
+    scene.position.sub(center)
+    scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle)
+    scene.position.add(center)
+
+    console.log(deltaAngle);
+    
+    scene.rotation.z += deltaAngle
+  }
+  lastMouse.x = e.clientX
+  lastMouse.y = e.clientY
+})
+
 
   canvas.addEventListener(
     'wheel',
@@ -398,34 +410,35 @@ function initiateMap(){
     isDragging = false
     isRotating = false
   }
-  function moveDrag(x,y){
-    const dx = x - lastMouse.x
-    const dy = y - lastMouse.y
-    lastMouse.x = x
-    lastMouse.y = y
+  function moveDrag(x, y) {
+  const dx = x - lastMouse.x
+  const dy = y - lastMouse.y
+  lastMouse.x = x
+  lastMouse.y = y
 
-    if (isDragging){
-      camera.position.x -= dx / camera.zoom
-      camera.position.y += dy / camera.zoom
-      clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
-      const halfWidth = (window.innerWidth / 2 ) / camera.zoom
-      const halfHeight = (window.innerHeight / 2) / camera.zoom
-      const xLimit = mapWidth / 2 - halfWidth
-      const yLimit = mapHeight / 2 - halfHeight
+  if (isDragging) {
+    camera.position.x -= dx / camera.zoom
+    camera.position.y += dy / camera.zoom
 
-      camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
+    clampCameraToRadius(new THREE.Vector3(0, 0, 0), 500)
+
+    const halfWidth = (window.innerWidth / 2) / camera.zoom
+    const halfHeight = (window.innerHeight / 2) / camera.zoom
+    const xLimit = mapWidth / 2 - halfWidth
+    const yLimit = mapHeight / 2 - halfHeight
+
+    camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
     camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
   }
-  
   if (isRotating) {
     scene.rotation.z += dx * 0.005
   }
-  }
+}
   canvas.addEventListener('touchstart', (e) => {
     userMovedCamera = true
   if (e.touches.length === 1) {
     const touch = e.touches[0]
-    startDrag(touch.clientX, touch.clientY)
+    startDrag(touch.clientX, touch.clientY,0)
   } else if (e.touches.length === 2) {
     lastAngle = getAngle(e.touches)
 
@@ -444,7 +457,7 @@ canvas.addEventListener('touchmove', (e) => {
   } else if (e.touches.length === 2) {
     const newAngle = getAngle(e.touches)
     if (lastAngle !== null) {
-      const delta = newAngle - lastAngle
+      const delta = -newAngle - -lastAngle
       scene.rotation.z += delta
     }
     lastAngle = newAngle
@@ -538,7 +551,7 @@ onBeforeUnmount(() => {
 }
 .home-btn {
   position: absolute;
-  bottom: 80px;
+  bottom: 30mm;
   right: 2vw;
   width: 14vw;
   height: 14vw;
