@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { resetCamera } from '@/services/camera'
+import { ref, onMounted } from 'vue'
+import { resetCamera } from '@/services/scene' 
 import { initiateMap } from '@/services/scene'
 
 const canvasRef = ref(null)

@@ -3,7 +3,6 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { watchUserLocation } from "@/services/locationService";
-import { MapControls } from "three/addons/controls/MapControls.js";
 import { clampCameraToRedCircle } from "./camera";
 import { mapInteractions } from "./gestureHandler";
 
@@ -69,12 +68,6 @@ export function initiateMap(canvas, mapInitialized) {
   let pinSprite;
   let lastPinchDistance = null;
 
-  //   camera = new THREE.PerspectiveCamera(
-  //     45,
-  //     window.innerWidth / window.innerHeight,
-  //     1,
-  //     10000
-  //   );
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2,
     window.innerWidth / 2,
@@ -84,8 +77,6 @@ export function initiateMap(canvas, mapInitialized) {
     1000
   );
   camera.position.z = 10;
-  //   const controls = new MapControls(camera, renderer.domElement);
-  //   controls.enableDamping = true;
   let routeGroup = new THREE.Group();
   scene.add(routeGroup);
   camera.zoom = 1;
@@ -343,4 +334,19 @@ export function findNearestPoint(coord, coordMap) {
     if (dist < minDist) minDist = dist;
   }
   return minDist;
+}
+
+export function resetCamera() {
+  if (!camera || !scene) return;
+
+  // Reset rotation first
+  scene.rotation.z = 0;
+
+  // Convert gateCoord to world XY
+  const { x, y } = convertToXY(gateCoord);
+
+  // Recenter camera directly on the actual point
+  camera.position.set(x, y, 10);
+  camera.zoom = 1;
+  camera.updateProjectionMatrix();
 }

@@ -11,22 +11,6 @@ function convertToXY([lon, lat]) {
   const y = (lat - centerLat) * scale;
   return { x, y };
 }
-const gateCoord = [121.149852, 14.234344];
-
-export function resetCamera() {
-  if (!camera || !scene) return;
-
-  // Reset rotation first
-  scene.rotation.z = 0;
-
-  // Convert gateCoord to world XY
-  const { x, y } = convertToXY(gateCoord);
-
-  // Recenter camera directly on the actual point
-  camera.position.set(x, y, 10);
-  camera.zoom = 1;
-  camera.updateProjectionMatrix();
-}
 
 export function clampCameraToRedCircle(center, radius) {
   const dx = camera.position.x - center.x;
@@ -77,4 +61,20 @@ export function rotateCameraToRedCircle(center, radius) {
   // Step 4: Move the camera
   camera.position.x = camPos.x;
   camera.position.y = camPos.y;
+}
+
+export function clampCameraToBounds(camera, mapWidth, mapHeight) {
+  const halfWidth = window.innerWidth / 2 / camera.zoom;
+  const halfHeight = window.innerHeight / 2 / camera.zoom;
+
+  const minX = halfWidth;
+  const maxX = mapWidth - halfWidth;
+  const minY = halfHeight;
+  const maxY = mapHeight - halfHeight;
+
+  camera.position.x = Math.max(minX, Math.min(maxX, camera.position.x));
+  camera.position.y = Math.max(minY, Math.min(maxY, camera.position.y));
+  console.log("Camera Position:", camera.position.x, camera.position.y);
+  console.log("Bounds X:", minX, "-", maxX);
+  console.log("Bounds Y:", minY, "-", maxY);
 }

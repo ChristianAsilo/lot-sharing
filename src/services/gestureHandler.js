@@ -1,6 +1,6 @@
 // mapInteractions.js
 import * as THREE from "three";
-
+import { clampCameraToBounds } from "./camera";
 export function mapInteractions(
   canvas,
   camera,
@@ -16,10 +16,87 @@ export function mapInteractions(
   let lastPinchDistance = null;
   let userMovedCamera = false;
 
+  canvas.addEventListener("mousedown", (e) => {
+    lastMouse.x = e.clientX;
+    lastMouse.y = e.clientY;
+    if (e.button === 0) isDragging = true;
+    else if (e.button === 2) {
+      isRotating = true;
+    }
+  });
+
   window.addEventListener("mouseup", () => {
     isDragging = false;
     isRotating = false;
   });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging && !isRotating) return;
+
+    const dx = e.clientX - lastMouse.x;
+    const dy = e.clientY - lastMouse.y;
+
+    handleMove(dx, dy);
+
+    lastMouse.x = e.clientX;
+    lastMouse.y = e.clientY;
+  });
+
+  // window.addEventListener("mousemove", (e) => {
+  //   if (!isDragging && !isRotating) return;
+
+  //   const dx = e.clientX - lastMouse.x;
+  //   const dy = e.clientY - lastMouse.y;
+
+  //   if (isDragging) {
+  //     scene.position.x += dx;
+  //     scene.position.y -= dy;
+  //   }
+
+  //   if (isRotating) {
+  //     const deltaX = e.clientX - lastMouse.x;
+  //     const deltaAngle = -deltaX * 0.005;
+  //     const screenCenter = new THREE.Vector2(
+  //       window.innerWidth / 2,
+  //       window.innerHeight / 2
+  //     );
+  //     const ndc = new THREE.Vector3(
+  //       (screenCenter.x / window.innerWidth) * 2 - 1,
+  //       -(screenCenter.y / window.innerHeight) * 2 + 1,
+  //       0
+  //     );
+  //     ndc.unproject(camera);
+  //     const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+  //     scene.position.sub(pivot);
+  //     scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
+  //     scene.position.add(pivot);
+
+  //     scene.rotation.z += deltaAngle;
+  //   }
+
+  //   const R = 600;
+  //   const r = 200;
+
+  //   const rotatedPos = scene.position.clone();
+  //   const unrotated = rotatedPos
+  //     .clone()
+  //     .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+
+  //   const angle = Math.atan2(unrotated.y, unrotated.x);
+  //   const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+
+  //   if (unrotated.length() > maxRadius) {
+  //     unrotated.setLength(maxRadius);
+  //     const clamped = unrotated.applyAxisAngle(
+  //       new THREE.Vector3(0, 0, 1),
+  //       scene.rotation.z
+  //     );
+  //     scene.position.copy(clamped);
+  //   }
+
+  //   lastMouse.x = e.clientX;
+  //   lastMouse.y = e.clientY;
+  // });
 
   canvas.addEventListener(
     "wheel",
@@ -47,57 +124,54 @@ export function mapInteractions(
     isRotating = false;
   }
 
-  function moveDrag(x, y) {
-    const dx = x - lastMouse.x;
-    const dy = y - lastMouse.y;
-    lastMouse.x = x;
-    lastMouse.y = y;
-
+  function handleMove(dx, dy) {
     if (isDragging) {
-      camera.position.x -= dx / camera.zoom;
-      camera.position.y += dy / camera.zoom;
-
-      const halfWidth = window.innerWidth / 2 / camera.zoom;
-      const halfHeight = window.innerHeight / 2 / camera.zoom;
-      const xLimit = mapWidth / 2 - halfWidth;
-      const yLimit = mapHeight / 2 - halfHeight;
-
-      camera.position.x = Math.max(
-        -xLimit,
-        Math.min(xLimit, camera.position.x)
-      );
-      camera.position.y = Math.max(
-        -yLimit,
-        Math.min(yLimit, camera.position.y)
-      );
+      scene.position.x += dx;
+      scene.position.y -= dy;
     }
 
     if (isRotating) {
-      scene.rotation.z += dx * 0.005;
+      const deltaAngle = -dx * 0.005;
+
+      const screenCenter = new THREE.Vector2(
+        window.innerWidth / 2,
+        window.innerHeight / 2
+      );
+      const ndc = new THREE.Vector3(
+        (screenCenter.x / window.innerWidth) * 2 - 1,
+        -(screenCenter.y / window.innerHeight) * 2 + 1,
+        0
+      );
+      ndc.unproject(camera);
+      const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+
+      scene.position.sub(pivot);
+      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
+      scene.position.add(pivot);
+
+      scene.rotation.z += deltaAngle;
+    }
+
+    const R = 600;
+    const r = 200;
+
+    const rotatedPos = scene.position.clone();
+    const unrotated = rotatedPos
+      .clone()
+      .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+
+    const angle = Math.atan2(unrotated.y, unrotated.x);
+    const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+
+    if (unrotated.length() > maxRadius) {
+      unrotated.setLength(maxRadius);
+      const clamped = unrotated.applyAxisAngle(
+        new THREE.Vector3(0, 0, 1),
+        scene.rotation.z
+      );
+      scene.position.copy(clamped);
     }
   }
-  //   function moveDrag(x, y) {
-  //   const dx = x - lastMouse.x
-  //   const dy = y - lastMouse.y
-  //   lastMouse.x = x
-  //   lastMouse.y = y
-
-  //   if (isDragging) {
-  //     camera.position.x -= dx / camera.zoom
-  //     camera.position.y += dy / camera.zoom
-
-  //     const halfWidth = (window.innerWidth / 2) / camera.zoom
-  //     const halfHeight = (window.innerHeight / 2) / camera.zoom
-  //     const xLimit = mapWidth / 2 - halfWidth
-  //     const yLimit = mapHeight / 2 - halfHeight
-
-  //     camera.position.x = Math.max(-xLimit, Math.min(xLimit, camera.position.x))
-  //     camera.position.y = Math.max(-yLimit, Math.min(yLimit, camera.position.y))
-  //   }
-  //   if (isRotating) {
-  //     scene.rotation.z += dx * 0.005
-  //   }
-  // }
 
   function getAngle(touches) {
     const [touch1, touch2] = touches;
@@ -130,36 +204,69 @@ export function mapInteractions(
       userMovedCamera = true;
 
       if (e.touches.length === 1) {
-        const touch = e.touches[0];
-        moveDrag(touch.clientX, touch.clientY);
-      } else if (e.touches.length === 2) {
-        const newAngle = getAngle(e.touches);
+        const dx = (e.touches[0].clientX - lastMouse.x) * 0.5;
+        const dy = (e.touches[0].clientY - lastMouse.y) * 0.5;
+        scene.position.x += dx;
+        scene.position.y -= dy;
 
-        if (lastAngle !== null) {
-          const delta = newAngle - lastAngle;
-          const center = new THREE.Vector3(mapCenter.x, mapCenter.y, 0);
+        lastMouse.x = e.touches[0].clientX;
+        lastMouse.y = e.touches[0].clientY;
+      }
 
-          scene.position.sub(center);
-          scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), delta);
-          scene.position.add(center);
-
-          scene.rotation.z += delta;
-        }
-
-        lastAngle = newAngle;
-
+      if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
+        const newAngle = getAngle(e.touches);
+        const deltaAngle = newAngle - lastAngle;
+        lastAngle = newAngle;
+
         if (lastPinchDistance !== null) {
-          const zoomFactor = distance / lastPinchDistance;
-          camera.zoom *= zoomFactor;
-          camera.zoom = Math.max(0.5, Math.min(5, camera.zoom));
+          const deltaZoom = (distance - lastPinchDistance) * 0.003;
+          camera.zoom += deltaZoom;
+          camera.zoom = Math.max(0.5, Math.min(4, camera.zoom));
           camera.updateProjectionMatrix();
         }
-
         lastPinchDistance = distance;
+
+        // Rotate around screen center
+        const screenCenter = new THREE.Vector2(
+          window.innerWidth / 2,
+          window.innerHeight / 2
+        );
+        const ndc = new THREE.Vector3(
+          (screenCenter.x / window.innerWidth) * 2 - 1,
+          -(screenCenter.y / window.innerHeight) * 2 + 1,
+          0
+        );
+        ndc.unproject(camera);
+        const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+
+        scene.position.sub(pivot);
+        scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
+        scene.position.add(pivot);
+        scene.rotation.z += deltaAngle;
+      }
+
+      // Clamp inside epicycloid shape
+      const R = 2000;
+      const r = 800;
+      const rotatedPos = scene.position.clone();
+      const unrotated = rotatedPos
+        .clone()
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+
+      const angle = Math.atan2(unrotated.y, unrotated.x);
+      const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+
+      if (unrotated.length() > maxRadius) {
+        unrotated.setLength(maxRadius);
+        const clamped = unrotated.applyAxisAngle(
+          new THREE.Vector3(0, 0, 1),
+          scene.rotation.z
+        );
+        scene.position.copy(clamped);
       }
     },
     { passive: false }
