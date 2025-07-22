@@ -196,7 +196,6 @@ export function mapInteractions(
     },
     { passive: false }
   );
-
   canvas.addEventListener(
     "touchmove",
     (e) => {
@@ -206,6 +205,7 @@ export function mapInteractions(
       if (e.touches.length === 1) {
         const dx = (e.touches[0].clientX - lastMouse.x) * 1.5;
         const dy = (e.touches[0].clientY - lastMouse.y) * 1.5;
+
         scene.position.x += dx;
         scene.position.y -= dy;
 
@@ -214,13 +214,20 @@ export function mapInteractions(
       }
 
       if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const [touch1, touch2] = e.touches;
 
-        const newAngle = getAngle(e.touches);
-        const deltaAngle = -(angle - lastAngle);
-        lastAngle = newAngle;
+        // Rotation
+        const angleNow = getAngle(e.touches);
+        let deltaAngle = 0;
+        if (lastAngle !== null) {
+          deltaAngle = -(angleNow - lastAngle); // Invert rotation for mobile
+        }
+        lastAngle = angleNow;
+
+        // Zoom
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (lastPinchDistance !== null) {
           const deltaZoom = (distance - lastPinchDistance) * 0.003;
