@@ -204,8 +204,8 @@ export function mapInteractions(
       userMovedCamera = true;
 
       if (e.touches.length === 1) {
-        const dx = (e.touches[0].clientX - lastMouse.x) * 0.5;
-        const dy = (e.touches[0].clientY - lastMouse.y) * 0.5;
+        const dx = (e.touches[0].clientX - lastMouse.x) * 1.5;
+        const dy = (e.touches[0].clientY - lastMouse.y) * 1.5;
         scene.position.x += dx;
         scene.position.y -= dy;
 
@@ -219,7 +219,7 @@ export function mapInteractions(
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         const newAngle = getAngle(e.touches);
-        const deltaAngle = newAngle - lastAngle;
+        const deltaAngle = -(angle - lastAngle);
         lastAngle = newAngle;
 
         if (lastPinchDistance !== null) {
