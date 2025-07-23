@@ -1,14 +1,6 @@
 // mapInteractions.js
 import * as THREE from "three";
-import { clampCameraToBounds } from "./camera";
-export function mapInteractions(
-  canvas,
-  camera,
-  scene,
-  mapWidth,
-  mapHeight,
-  mapCenter
-) {
+export function mapInteractions(canvas, camera, scene) {
   let isDragging = false;
   let isRotating = false;
   let lastMouse = { x: 0, y: 0 };
@@ -215,10 +207,9 @@ export function mapInteractions(
 
       if (e.touches.length === 2) {
         const [touch1, touch2] = e.touches;
-
-        // Rotation
         const angleNow = getAngle(e.touches);
         let deltaAngle = 0;
+
         if (lastAngle !== null) {
           deltaAngle = -(angleNow - lastAngle); // Invert rotation for mobile
         }

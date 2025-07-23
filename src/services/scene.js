@@ -3,7 +3,6 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { watchUserLocation } from "@/services/locationService";
-import { clampCameraToRedCircle } from "./camera";
 import { mapInteractions } from "./gestureHandler";
 
 let camera;
@@ -15,12 +14,12 @@ const centerLat = 14.233539920666581;
 const centerLon = 121.15133389733768;
 const scale = 385000;
 const mapCenter = convertToXY([centerLon, centerLat]);
-const targetCoord = [121.152172, 14.233072];
+const targetCoord = [121.15327, 14.234041];
 const gateCoord = [121.149852, 14.234344];
+let renderer;
+let userX, userY;
 let liveCoords;
 let coordMap;
-let redCircleCenter = new THREE.Vector2(mapCenter.x + 120, mapCenter.y);
-let redCircleRadius = 0;
 let userMovedCamera = false;
 const defaultCameraState = {
   position: new THREE.Vector3(),
@@ -60,13 +59,12 @@ export function handlePermissionState(state) {
 
 export function initiateMap(canvas, mapInitialized) {
   mapInitialized.value = true;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   scene = new THREE.Scene();
   let lineMaterial;
   let pinSprite;
-  let lastPinchDistance = null;
 
   camera = new THREE.OrthographicCamera(
     window.innerWidth / -2,
@@ -107,11 +105,11 @@ export function initiateMap(canvas, mapInitialized) {
             coordMap.set(p.id, p.coordinates);
           });
 
-          const threshold = 0.0003; // ~30 meters
+          const threshold = 0.0003;
           const distToNearest = findNearestPoint(liveCoords, coordMap);
 
           const coords = distToNearest < threshold ? liveCoords : gateCoord;
-          const { x, y } = convertToXY(coords);
+          ({ x: userX, y: userY } = convertToXY(coords));
 
           // --- everything that uses coords, x, y should be inside here ---
           if (!locationDot) {
@@ -142,14 +140,15 @@ export function initiateMap(canvas, mapInitialized) {
             locationDot = new THREE.Group();
             locationDot.add(dot);
             locationDot.add(beam);
-            locationDot.position.set(x, y, 1.5);
+            locationDot.position.set(userX, userY, 1.5);
             scene.add(locationDot);
           } else {
-            locationDot.position.set(x, y, 1.5);
+            locationDot.position.set(userX, userY, 1.5);
           }
 
           if (!userMovedCamera) {
-            camera.position.set(x, y, 10);
+            camera.position.set(userX, userY, 10);
+            console.log("camera auto", userX, userY);
           }
 
           if (
@@ -265,36 +264,6 @@ export function initiateMap(canvas, mapInitialized) {
         pinSprite = new THREE.Mesh(geometry, material);
         pinSprite.position.set(tx, ty, 3);
         routeGroup.add(pinSprite);
-
-        // --- 🔴 Circular red line using mapCenter ---
-        redCircleCenter = new THREE.Vector2(mapCenter.x + 120, mapCenter.y);
-        let maxDist = 0;
-        linePoints.forEach((p) => {
-          const dx = p.x - redCircleCenter.x;
-          const dy = p.y - redCircleCenter.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > maxDist) maxDist = dist;
-        });
-
-        const padding = 600; // Add extra buffer around
-        const radius = maxDist + padding;
-        const segments = 128;
-        const circlePoints = [];
-
-        redCircleRadius = radius;
-        for (let i = 0; i <= segments; i++) {
-          const theta = (i / segments) * Math.PI * 2;
-          const x = redCircleCenter.x + radius * Math.cos(theta);
-          const y = redCircleCenter.y + radius * Math.sin(theta);
-          circlePoints.push(new THREE.Vector3(x, y, 0.5));
-        }
-
-        const circleGeo = new THREE.BufferGeometry().setFromPoints(
-          circlePoints
-        );
-        const circleMat = new THREE.LineBasicMaterial({ color: 0xff0000 });
-        const circleLine = new THREE.LineLoop(circleGeo, circleMat);
-        routeGroup.add(circleLine);
       });
   }
 
@@ -315,7 +284,7 @@ export function initiateMap(canvas, mapInitialized) {
   }
 
   animate();
-  mapInteractions(canvas, camera, scene, mapWidth, mapHeight, mapCenter);
+  mapInteractions(canvas, camera, scene);
 }
 
 export function convertToXY([lon, lat]) {
@@ -337,16 +306,25 @@ export function findNearestPoint(coord, coordMap) {
 }
 
 export function resetCamera() {
-  if (!camera || !scene) return;
+  if (!scene || !liveCoords || !Array.isArray(liveCoords)) {
+    console.warn("Missing scene or coords");
+    return;
+  }
 
-  // Reset rotation first
+  const threshold = 0.0003;
+  const distToNearest = findNearestPoint(liveCoords, coordMap);
+  const coords = distToNearest < threshold ? liveCoords : gateCoord;
+
+  const { x, y } = convertToXY(coords);
+
+  console.log("Reset camera to:", x, y);
+  console.log("Before camera position:", camera.position);
+
   scene.rotation.z = 0;
-
-  // Convert gateCoord to world XY
-  const { x, y } = convertToXY(gateCoord);
-
-  // Recenter camera directly on the actual point
   camera.position.set(x, y, 10);
-  camera.zoom = 1;
   camera.updateProjectionMatrix();
+
+  console.log("After camera position:", camera.position);
+
+  renderer.render(scene, camera);
 }

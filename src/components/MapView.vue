@@ -5,7 +5,6 @@ import { initiateMap } from '@/services/scene'
 
 const canvasRef = ref(null)
 const mapInitialized = ref(false)
-
 onMounted(async () => {
     initiateMap(canvasRef.value, mapInitialized,() => {
     });    
