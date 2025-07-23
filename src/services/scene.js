@@ -142,22 +142,23 @@ export function initiateMap(canvas, mapInitialized) {
             locationDot.add(beam);
             locationDot.position.set(userX, userY, 1.5);
             scene.add(locationDot);
-          } else {
-            locationDot.position.set(userX, userY, 1.5);
           }
+          // else {
+          //   locationDot.position.set(userX, userY, 1.5);
+          // }
 
-          if (!userMovedCamera) {
-            camera.position.set(userX, userY, 10);
-            console.log("camera auto", userX, userY);
-          }
+          // if (!userMovedCamera) {
+          //   camera.position.set(userX, userY, 10);
+          //   console.log("camera auto", userX, userY);
+          // }
 
-          if (
-            !userMovedCamera &&
-            typeof heading === "number" &&
-            !isNaN(heading)
-          ) {
-            scene.rotation.z = -THREE.MathUtils.degToRad(heading);
-          }
+          // if (
+          //   !userMovedCamera &&
+          //   typeof heading === "number" &&
+          //   !isNaN(heading)
+          // ) {
+          //   scene.rotation.z = -THREE.MathUtils.degToRad(heading);
+          // }
           loadAndDrawPoints(coords);
         });
     });
