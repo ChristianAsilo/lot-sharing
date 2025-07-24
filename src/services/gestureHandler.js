@@ -200,7 +200,7 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
         scene.position.x += dx;
         scene.position.y -= dy;
-
+        handleMove(dx, -dy);
         lastMouse.x = e.touches[0].clientX;
         lastMouse.y = e.touches[0].clientY;
       }
