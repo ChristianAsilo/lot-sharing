@@ -68,12 +68,12 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       const deltaAngle = -dx * 0.005;
 
       const screenCenter = new THREE.Vector2(
-        windows.innerWidth / 2,
-        windows.innerHeight / 2
+        window.innerWidth / 2,
+        window.innerHeight / 2
       );
       const ndc = new THREE.Vector3(
-        (screenCenter.x / windows.innerWidth) * 2 - 1,
-        -(screenCenter.y / windows.innerHeight) * 2 + 1,
+        (screenCenter.x / window.innerWidth) * 2 - 1,
+        -(screenCenter.y / window.innerHeight) * 2 + 1,
         0
       );
       ndc.unproject(camera);
@@ -174,12 +174,12 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
         // Rotate around screen center
         const screenCenter = new THREE.Vector2(
-          windows.innerWidth / 2,
-          windows.innerHeight / 2
+          window.innerWidth / 2,
+          window.innerHeight / 2
         );
         const ndc = new THREE.Vector3(
-          (screenCenter.x / windows.innerWidth) * 2 - 1,
-          -(screenCenter.y / windows.innerHeight) * 2 + 1,
+          (screenCenter.x / window.innerWidth) * 2 - 1,
+          -(screenCenter.y / window.innerHeight) * 2 + 1,
           0
         );
         ndc.unproject(camera);
