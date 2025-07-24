@@ -139,7 +139,7 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
         const dx = (touch.clientX - lastMouse.x) * 1.5;
         const dy = (lastMouse.y - touch.clientY) * 1.5;
 
-        handleMove(dx, -dy);
+        // handleMove(dx, -dy);
 
         lastMouse.x = touch.clientX;
         lastMouse.y = touch.clientY;
