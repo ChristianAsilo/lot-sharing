@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { resetCamera } from '@/services/scene' 
 import { initiateMap } from '@/services/scene'
-
 const canvasRef = ref(null)
 const mapInitialized = ref(false)
 

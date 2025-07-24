@@ -6,7 +6,13 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
   let lastMouse = { x: 0, y: 0 };
   let lastAngle = null;
   let lastPinchDistance = null;
-  let userMovedCamera = false;
+
+  const MAP_BOUNDS = {
+    minX: -900,
+    maxX: 900,
+    minY: -450,
+    maxY: 450,
+  };
 
   canvas.addEventListener("mousedown", (e) => {
     lastMouse.x = e.clientX;
@@ -33,63 +39,6 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
     lastMouse.x = e.clientX;
     lastMouse.y = e.clientY;
   });
-
-  // window.addEventListener("mousemove", (e) => {
-  //   if (!isDragging && !isRotating) return;
-
-  //   const dx = e.clientX - lastMouse.x;
-  //   const dy = e.clientY - lastMouse.y;
-
-  //   if (isDragging) {
-  //     scene.position.x += dx;
-  //     scene.position.y -= dy;
-  //   }
-
-  //   if (isRotating) {
-  //     const deltaX = e.clientX - lastMouse.x;
-  //     const deltaAngle = -deltaX * 0.005;
-  //     const screenCenter = new THREE.Vector2(
-  //       window.innerWidth / 2,
-  //       window.innerHeight / 2
-  //     );
-  //     const ndc = new THREE.Vector3(
-  //       (screenCenter.x / window.innerWidth) * 2 - 1,
-  //       -(screenCenter.y / window.innerHeight) * 2 + 1,
-  //       0
-  //     );
-  //     ndc.unproject(camera);
-  //     const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
-  //     scene.position.sub(pivot);
-  //     scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
-  //     scene.position.add(pivot);
-
-  //     scene.rotation.z += deltaAngle;
-  //   }
-
-  //   const R = 600;
-  //   const r = 200;
-
-  //   const rotatedPos = scene.position.clone();
-  //   const unrotated = rotatedPos
-  //     .clone()
-  //     .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
-
-  //   const angle = Math.atan2(unrotated.y, unrotated.x);
-  //   const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
-
-  //   if (unrotated.length() > maxRadius) {
-  //     unrotated.setLength(maxRadius);
-  //     const clamped = unrotated.applyAxisAngle(
-  //       new THREE.Vector3(0, 0, 1),
-  //       scene.rotation.z
-  //     );
-  //     scene.position.copy(clamped);
-  //   }
-
-  //   lastMouse.x = e.clientX;
-  //   lastMouse.y = e.clientY;
-  // });
-
   canvas.addEventListener(
     "wheel",
     (e) => {
@@ -103,13 +52,6 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
   );
 
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-
-  function startDrag(x, y, button = 0) {
-    lastMouse.x = x;
-    lastMouse.y = y;
-    if (button === 0) isDragging = true;
-    else if (button === 2) isRotating = true;
-  }
 
   function stopDrag() {
     isDragging = false;
@@ -136,33 +78,31 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       );
       ndc.unproject(camera);
       const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
-
       scene.position.sub(pivot);
       scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
       scene.position.add(pivot);
-
       scene.rotation.z += deltaAngle;
     }
 
-    const R = 600;
-    const r = 200;
-
-    const rotatedPos = scene.position.clone();
-    const unrotated = rotatedPos
+    const unrotatedScenePos = scene.position
       .clone()
       .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
 
-    const angle = Math.atan2(unrotated.y, unrotated.x);
-    const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+    unrotatedScenePos.x = Math.min(
+      Math.max(unrotatedScenePos.x, MAP_BOUNDS.minX),
+      MAP_BOUNDS.maxX
+    );
+    unrotatedScenePos.y = Math.min(
+      Math.max(unrotatedScenePos.y, MAP_BOUNDS.minY),
+      MAP_BOUNDS.maxY
+    );
 
-    if (unrotated.length() > maxRadius) {
-      unrotated.setLength(maxRadius);
-      const clamped = unrotated.applyAxisAngle(
-        new THREE.Vector3(0, 0, 1),
-        scene.rotation.z
-      );
-      scene.position.copy(clamped);
-    }
+    const clamped = unrotatedScenePos.applyAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      scene.rotation.z
+    );
+
+    scene.position.copy(clamped);
   }
 
   function getAngle(touches) {
@@ -175,10 +115,11 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
   canvas.addEventListener(
     "touchstart",
     (e) => {
-      userMovedCamera = true;
       if (e.touches.length === 1) {
         const touch = e.touches[0];
-        startDrag(touch.clientX, touch.clientY, 0);
+        lastMouse.x = touch.clientX;
+        lastMouse.y = touch.clientY;
+        isDragging = true;
       } else if (e.touches.length === 2) {
         lastAngle = getAngle(e.touches);
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -192,17 +133,16 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
     "touchmove",
     (e) => {
       e.preventDefault();
-      userMovedCamera = true;
 
-      if (e.touches.length === 1) {
-        const dx = (e.touches[0].clientX - lastMouse.x) * 1.5;
-        const dy = (e.touches[0].clientY - lastMouse.y) * 1.5;
+      if (e.touches.length === 1 && isDragging) {
+        const touch = e.touches[0];
+        const dx = (touch.clientX - lastMouse.x) * 1.5;
+        const dy = (lastMouse.y - touch.clientY) * 1.5;
 
-        scene.position.x += dx;
-        scene.position.y -= dy;
         handleMove(dx, -dy);
-        lastMouse.x = e.touches[0].clientX;
-        lastMouse.y = e.touches[0].clientY;
+
+        lastMouse.x = touch.clientX;
+        lastMouse.y = touch.clientY;
       }
 
       if (e.touches.length === 2) {
