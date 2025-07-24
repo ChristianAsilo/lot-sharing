@@ -68,12 +68,12 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       const deltaAngle = -dx * 0.005;
 
       const screenCenter = new THREE.Vector2(
-        window.innerWidth / 2,
-        window.innerHeight / 2
+        canvas.innerWidth / 2,
+        canvas.innerHeight / 2
       );
       const ndc = new THREE.Vector3(
-        (screenCenter.x / window.innerWidth) * 2 - 1,
-        -(screenCenter.y / window.innerHeight) * 2 + 1,
+        (screenCenter.x / canvas.innerWidth) * 2 - 1,
+        -(screenCenter.y / canvas.innerHeight) * 2 + 1,
         0
       );
       ndc.unproject(camera);
@@ -97,11 +97,15 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       MAP_BOUNDS.maxY
     );
 
+    console.log(unrotatedScenePos.x, unrotatedScenePos.y);
+
     const clamped = unrotatedScenePos.applyAxisAngle(
       new THREE.Vector3(0, 0, 1),
       scene.rotation.z
     );
+    console.log("clamped", clamped);
 
+    console.log(unrotatedScenePos.x, unrotatedScenePos.y);
     scene.position.copy(clamped);
   }
 
@@ -170,12 +174,12 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
         // Rotate around screen center
         const screenCenter = new THREE.Vector2(
-          window.innerWidth / 2,
-          window.innerHeight / 2
+          canvas.innerWidth / 2,
+          canvas.innerHeight / 2
         );
         const ndc = new THREE.Vector3(
-          (screenCenter.x / window.innerWidth) * 2 - 1,
-          -(screenCenter.y / window.innerHeight) * 2 + 1,
+          (screenCenter.x / canvas.innerWidth) * 2 - 1,
+          -(screenCenter.y / canvas.innerHeight) * 2 + 1,
           0
         );
         ndc.unproject(camera);
@@ -188,24 +192,24 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       }
 
       // Clamp inside epicycloid shape
-      // const R = 2000;
-      // const r = 800;
-      // const rotatedPos = scene.position.clone();
-      // const unrotated = rotatedPos
-      //   .clone()
-      //   .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+      const R = 2000;
+      const r = 800;
+      const rotatedPos = scene.position.clone();
+      const unrotated = rotatedPos
+        .clone()
+        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
 
-      // const angle = Math.atan2(unrotated.y, unrotated.x);
-      // const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+      const angle = Math.atan2(unrotated.y, unrotated.x);
+      const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
 
-      // if (unrotated.length() > maxRadius) {
-      //   unrotated.setLength(maxRadius);
-      //   const clamped = unrotated.applyAxisAngle(
-      //     new THREE.Vector3(0, 0, 1),
-      //     scene.rotation.z
-      //   );
-      //   scene.position.copy(clamped);
-      // }
+      if (unrotated.length() > maxRadius) {
+        unrotated.setLength(maxRadius);
+        const clamped = unrotated.applyAxisAngle(
+          new THREE.Vector3(0, 0, 1),
+          scene.rotation.z
+        );
+        scene.position.copy(clamped);
+      }
     },
     { passive: false }
   );
