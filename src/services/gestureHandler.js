@@ -188,24 +188,24 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       }
 
       // Clamp inside epicycloid shape
-      const R = 2000;
-      const r = 800;
-      const rotatedPos = scene.position.clone();
-      const unrotated = rotatedPos
-        .clone()
-        .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+      // const R = 2000;
+      // const r = 800;
+      // const rotatedPos = scene.position.clone();
+      // const unrotated = rotatedPos
+      //   .clone()
+      //   .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
 
-      const angle = Math.atan2(unrotated.y, unrotated.x);
-      const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
+      // const angle = Math.atan2(unrotated.y, unrotated.x);
+      // const maxRadius = R + r - r * Math.cos(((R + r) / r) * angle);
 
-      if (unrotated.length() > maxRadius) {
-        unrotated.setLength(maxRadius);
-        const clamped = unrotated.applyAxisAngle(
-          new THREE.Vector3(0, 0, 1),
-          scene.rotation.z
-        );
-        scene.position.copy(clamped);
-      }
+      // if (unrotated.length() > maxRadius) {
+      //   unrotated.setLength(maxRadius);
+      //   const clamped = unrotated.applyAxisAngle(
+      //     new THREE.Vector3(0, 0, 1),
+      //     scene.rotation.z
+      //   );
+      //   scene.position.copy(clamped);
+      // }
     },
     { passive: false }
   );
