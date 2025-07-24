@@ -7,6 +7,19 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
   let lastAngle = null;
   let lastPinchDistance = null;
 
+  function getDynamicMapBounds() {
+    const scale = Math.min(window.innerWidth, window.innerHeight) / 800; // base width
+    const width = 1000 * scale;
+    const height = 800 * scale;
+
+    return {
+      minX: -width,
+      maxX: width,
+      minY: -height,
+      maxY: height,
+    };
+  }
+
   const MAP_BOUNDS = {
     minX: -900,
     maxX: 900,
@@ -87,14 +100,14 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
     const unrotatedScenePos = scene.position
       .clone()
       .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
-
+    const bounds = getDynamicMapBounds();
     unrotatedScenePos.x = Math.min(
-      Math.max(unrotatedScenePos.x, MAP_BOUNDS.minX),
-      MAP_BOUNDS.maxX
+      Math.max(unrotatedScenePos.x, bounds.minX),
+      bounds.maxX
     );
     unrotatedScenePos.y = Math.min(
-      Math.max(unrotatedScenePos.y, MAP_BOUNDS.minY),
-      MAP_BOUNDS.maxY
+      Math.max(unrotatedScenePos.y, bounds.minY),
+      bounds.maxY
     );
 
     console.log(unrotatedScenePos.x, unrotatedScenePos.y);
