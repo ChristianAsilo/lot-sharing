@@ -2,7 +2,10 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import { watchUserLocation } from "@/services/locationService";
+import {
+  getCurrentLocation,
+  watchUserLocation,
+} from "@/services/locationService";
 import { mapInteractions } from "./gestureHandler";
 
 let camera;
@@ -20,10 +23,11 @@ let renderer;
 let userX, userY;
 let liveCoords;
 let coordMap;
+const zoomVal = 1;
 let userMovedCamera = false;
 const defaultCameraState = {
   position: new THREE.Vector3(),
-  zoom: 1,
+  zoom: zoomVal,
   rotation: 0,
 };
 
@@ -57,8 +61,17 @@ export function handlePermissionState(state) {
   }
 }
 
-export function initiateMap(canvas, mapInitialized) {
+export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
+  try {
+    await getCurrentLocation();
+  } catch (error) {
+    throw err;
+  }
+
+  onReadyCallback();
   mapInitialized.value = true;
+
+  // Initialize the scene
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -77,7 +90,7 @@ export function initiateMap(canvas, mapInitialized) {
   camera.position.z = 10;
   let routeGroup = new THREE.Group();
   scene.add(routeGroup);
-  camera.zoom = 1;
+  camera.zoom = zoomVal;
   camera.updateProjectionMatrix();
   defaultCameraState.position.copy(camera.position);
   defaultCameraState.zoom = camera.zoom;
@@ -91,6 +104,9 @@ export function initiateMap(canvas, mapInitialized) {
     const material = new THREE.MeshBasicMaterial({ map: texture });
     const mapPlane = new THREE.Mesh(geometry, material);
     scene.add(mapPlane);
+    const { x: tx, y: ty } = convertToXY(targetCoord);
+    camera.position.set(tx, ty, 10);
+    camera.updateProjectionMatrix();
     if (mapInitialized.value) {
     }
 
@@ -143,30 +159,12 @@ export function initiateMap(canvas, mapInitialized) {
             locationDot.position.set(userX, userY, 1.5);
             scene.add(locationDot);
           }
-          // else {
-          //   locationDot.position.set(userX, userY, 1.5);
-          // }
-
-          // if (!userMovedCamera) {
-          //   camera.position.set(userX, userY, 10);
-          //   console.log("camera auto", userX, userY);
-          // }
-
-          // if (
-          //   !userMovedCamera &&
-          //   typeof heading === "number" &&
-          //   !isNaN(heading)
-          // ) {
-          //   scene.rotation.z = -THREE.MathUtils.degToRad(heading);
-          // }
           loadAndDrawPoints(coords);
         });
     });
   });
 
   function loadAndDrawPoints(startCoord) {
-    if (userMovedCamera) return;
-
     while (routeGroup.children.length > 0) {
       routeGroup.remove(routeGroup.children[0]);
     }
@@ -285,7 +283,7 @@ export function initiateMap(canvas, mapInitialized) {
   }
 
   animate();
-  mapInteractions(canvas, camera, scene);
+  mapInteractions(canvas, camera, scene, zoomVal);
 }
 
 export function convertToXY([lon, lat]) {
@@ -307,25 +305,12 @@ export function findNearestPoint(coord, coordMap) {
 }
 
 export function resetCamera() {
-  if (!scene || !liveCoords || !Array.isArray(liveCoords)) {
-    console.warn("Missing scene or coords");
-    return;
-  }
-
-  const threshold = 0.0003;
-  const distToNearest = findNearestPoint(liveCoords, coordMap);
-  const coords = distToNearest < threshold ? liveCoords : gateCoord;
-
-  const { x, y } = convertToXY(coords);
-
-  console.log("Reset camera to:", x, y);
-  console.log("Before camera position:", camera.position);
+  const { x: tx, y: ty } = convertToXY(gateCoord);
+  camera.position.set(tx, ty, 10);
 
   scene.rotation.z = 0;
-  camera.position.set(x, y, 10);
+  scene.position.set(0, 0, 0);
+
   camera.updateProjectionMatrix();
-
-  console.log("After camera position:", camera.position);
-
-  renderer.render(scene, camera);
+  renderer?.render(scene, camera);
 }

@@ -1,6 +1,6 @@
 // mapInteractions.js
 import * as THREE from "three";
-export function mapInteractions(canvas, camera, scene) {
+export function mapInteractions(canvas, camera, scene, zoomVal) {
   let isDragging = false;
   let isRotating = false;
   let lastMouse = { x: 0, y: 0 };

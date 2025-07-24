@@ -5,6 +5,14 @@ import { initiateMap } from '@/services/scene'
 
 const canvasRef = ref(null)
 const mapInitialized = ref(false)
+
+
+function handleResetCamera() {
+  resetCamera();
+  // initiateMap(canvasRef.value, mapInitialized, () => {
+  // });
+}
+
 onMounted(async () => {
     initiateMap(canvasRef.value, mapInitialized,() => {
     });    
@@ -117,7 +125,7 @@ canvas {
 <template>
   <div class="map-wrapper">
     <canvas ref="canvasRef" id="webgl"></canvas>
-    <button class="home-btn" @click="resetCamera" title="My Location">
+    <button class="home-btn" @click="handleResetCamera" title="My Location">
       <span class="material-icons">my_location</span>
     </button>
   </div>
@@ -127,7 +135,6 @@ canvas {
       <h3>Location Permission Needed</h3>
       <p>This app uses your location to show where you are and help guide your route. Please enable location access in your browser settings.</p>
       <div class="dialog-actions">
-        <button @click="retryRequest">Try Again</button>
       </div>
     </div>
   </div>
