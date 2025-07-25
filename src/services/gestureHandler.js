@@ -15,7 +15,7 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
     const width = 2000;
     const height = 1200;
     const xOffset = camera.position.x;
-    const yOffset = camera.position.y;
+
     return {
       minX: -(width - xOffset),
       maxX: width + xOffset,
@@ -147,7 +147,6 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
         scene.rotation.z += deltaAngle;
       }
 
-      // Clamp inside epicycloid shape
       const R = 2000;
       const r = 800;
       const rotatedPos = scene.position.clone();
@@ -194,7 +193,6 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       scene.rotation.z += deltaAngle;
     }
 
-    // 🔧 Use center of the map (0, 0) as clamp origin
     const clampOrigin = new THREE.Vector3(0, 0, 0);
 
     const unrotatedScenePos = scene.position
