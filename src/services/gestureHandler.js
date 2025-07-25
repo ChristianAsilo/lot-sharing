@@ -221,7 +221,6 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
     scene.position.copy(clamped);
   }
-
   function handleMove(dx, dy) {
     if (isDragging) {
       scene.position.x += dx;
@@ -238,38 +237,87 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       );
       ndc.unproject(camera);
       const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+
       scene.position.sub(pivot);
       scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
       scene.position.add(pivot);
       scene.rotation.z += deltaAngle;
     }
-    const centerVec = new THREE.Vector3(
-      (screenCenter.x / window.innerWidth) * 2 - 1,
-      -(screenCenter.y / window.innerHeight) * 2 + 1,
-      0
+
+    const clampOrigin = new THREE.Vector3(0, 0, 0);
+
+    const rotatedFromCenter = scene.position.clone().sub(clampOrigin);
+    const unrotatedPos = rotatedFromCenter.applyAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      -scene.rotation.z
     );
 
-    centerVec.unproject(camera);
-    const unrotatedScenePos = scene.position
-      .clone()
-      .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
     const bounds = getDynamicMapBounds();
-
-    unrotatedScenePos.x = Math.min(
-      Math.max(unrotatedScenePos.x, bounds.minX),
+    unrotatedPos.x = Math.min(
+      Math.max(unrotatedPos.x, bounds.minX),
       bounds.maxX
     );
-    unrotatedScenePos.y = Math.min(
-      Math.max(unrotatedScenePos.y, bounds.minY),
+    unrotatedPos.y = Math.min(
+      Math.max(unrotatedPos.y, bounds.minY),
       bounds.maxY
     );
-    const clamped = unrotatedScenePos.applyAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      scene.rotation.z
-    );
+
+    // Step 4: Rotate back and reapply offset
+    const clamped = unrotatedPos
+      .applyAxisAngle(new THREE.Vector3(0, 0, 1), scene.rotation.z)
+      .add(clampOrigin);
 
     scene.position.copy(clamped);
   }
+
+  // function handleMove(dx, dy) {
+  //   if (isDragging) {
+  //     scene.position.x += dx;
+  //     scene.position.y -= dy;
+  //   }
+
+  //   if (isRotating) {
+  //     const deltaAngle = -dx * 0.005;
+
+  //     const ndc = new THREE.Vector3(
+  //       (screenCenter.x / window.innerWidth) * 2 - 1,
+  //       -(screenCenter.y / window.innerHeight) * 2 + 1,
+  //       0
+  //     );
+  //     ndc.unproject(camera);
+  //     const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+  //     scene.position.sub(pivot);
+  //     scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
+  //     scene.position.add(pivot);
+  //     scene.rotation.z += deltaAngle;
+  //   }
+  //   const centerVec = new THREE.Vector3(
+  //     (screenCenter.x / window.innerWidth) * 2 - 1,
+  //     -(screenCenter.y / window.innerHeight) * 2 + 1,
+  //     0
+  //   );
+
+  //   centerVec.unproject(camera);
+  //   const unrotatedScenePos = scene.position
+  //     .clone()
+  //     .applyAxisAngle(new THREE.Vector3(0, 0, 1), -scene.rotation.z);
+  //   const bounds = getDynamicMapBounds();
+
+  //   unrotatedScenePos.x = Math.min(
+  //     Math.max(unrotatedScenePos.x, bounds.minX),
+  //     bounds.maxX
+  //   );
+  //   unrotatedScenePos.y = Math.min(
+  //     Math.max(unrotatedScenePos.y, bounds.minY),
+  //     bounds.maxY
+  //   );
+  //   const clamped = unrotatedScenePos.applyAxisAngle(
+  //     new THREE.Vector3(0, 0, 1),
+  //     scene.rotation.z
+  //   );
+
+  //   scene.position.copy(clamped);
+  // }
   canvas.addEventListener("touchend", () => {
     stopDrag();
     lastAngle = null;
