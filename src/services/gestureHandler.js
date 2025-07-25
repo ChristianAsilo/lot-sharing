@@ -13,8 +13,8 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
   function getDynamicMapBounds() {
     const scale = Math.min(window.innerWidth, window.innerHeight) / 800;
-    const width = 2800 * scale;
-    const height = 1800 * scale;
+    const width = 3000;
+    const height = 2000;
     const xOffset = camera.position.x;
     const yOffset = camera.position.y;
     console.log(scene.position);
