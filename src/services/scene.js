@@ -281,7 +281,6 @@ export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
       pinSprite.rotation.z = -scene.rotation.z;
     }
   }
-
   animate();
   mapInteractions(canvas, camera, scene, zoomVal);
 }
