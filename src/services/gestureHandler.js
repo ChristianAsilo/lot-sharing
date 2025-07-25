@@ -13,22 +13,18 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
 
   function getDynamicMapBounds() {
     const scale = Math.min(window.innerWidth, window.innerHeight) / 800;
-    console.log("scale", scale);
-
     const width = 1800 * scale;
-    const height = 1000 * scale;
+    const height = 800 * scale;
     const xOffset = camera.position.x;
     const yOffset = camera.position.y;
     console.log(scene.position);
-
-    console.log("camera", camera.position);
 
     // camera.position.set(0, 0, 10);
     return {
       minX: -(width - xOffset),
       maxX: width + xOffset,
-      minY: -height + yOffset,
-      maxY: height + yOffset,
+      minY: -height,
+      maxY: height,
     };
   }
 
@@ -184,21 +180,21 @@ export function mapInteractions(canvas, camera, scene, zoomVal) {
       scene.position.y -= dy;
     }
 
-    if (isRotating) {
-      const deltaAngle = -dx * 0.005;
+    // if (isRotating) {
+    //   const deltaAngle = -dx * 0.005;
 
-      const ndc = new THREE.Vector3(
-        (screenCenter.x / window.innerWidth) * 2 - 1,
-        -(screenCenter.y / window.innerHeight) * 2 + 1,
-        0
-      );
-      ndc.unproject(camera);
-      const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
-      scene.position.sub(pivot);
-      scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
-      scene.position.add(pivot);
-      scene.rotation.z += deltaAngle;
-    }
+    //   const ndc = new THREE.Vector3(
+    //     (screenCenter.x / window.innerWidth) * 2 - 1,
+    //     -(screenCenter.y / window.innerHeight) * 2 + 1,
+    //     0
+    //   );
+    //   ndc.unproject(camera);
+    //   const pivot = new THREE.Vector3(ndc.x, ndc.y, 0);
+    //   scene.position.sub(pivot);
+    //   scene.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), deltaAngle);
+    //   scene.position.add(pivot);
+    //   scene.rotation.z += deltaAngle;
+    // }
 
     // 🔧 Use center of the map (0, 0) as clamp origin
     const clampOrigin = new THREE.Vector3(0, 0, 0);
