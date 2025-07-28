@@ -17,7 +17,10 @@ const centerLat = 14.233539920666581;
 const centerLon = 121.15133389733768;
 const scale = 385000;
 const mapCenter = convertToXY([centerLon, centerLat]);
-const targetCoord = [121.15327, 14.234041];
+// const targetCoord = [121.15327, 14.234041];
+let targetLong = 0;
+let targetLat = 0;
+let targetCoord = [];
 const gateCoord = [121.149852, 14.234344];
 let renderer;
 let userX, userY;
@@ -61,16 +64,25 @@ export function handlePermissionState(state) {
   }
 }
 
-export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
+export async function initiateMap(
+  canvas,
+  data,
+  mapInitialized,
+  onReadyCallback,
+  onSnackbar
+) {
   try {
     await getCurrentLocation();
   } catch (error) {
-    throw err;
+    throw error;
   }
 
   onReadyCallback();
   mapInitialized.value = true;
 
+  targetLong = data.longitude;
+  targetLat = data.latitude;
+  targetCoord = [targetLong, targetLat];
   // Initialize the scene
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -104,9 +116,6 @@ export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
     const material = new THREE.MeshBasicMaterial({ map: texture });
     const mapPlane = new THREE.Mesh(geometry, material);
     scene.add(mapPlane);
-    const { x: tx, y: ty } = convertToXY(targetCoord);
-    camera.position.set(tx, ty, 10);
-    camera.updateProjectionMatrix();
     if (mapInitialized.value) {
     }
 
@@ -199,9 +208,40 @@ export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
           return nearestId;
         }
 
+        const MAX_ALLOWED_DISTANCE = 0.0005;
+        function isTargetCoordNearAnyPoint(coord) {
+          for (const coords of coordMap.values()) {
+            if (!coords || coords.length < 2) continue;
+            const [lon, lat] = coords;
+            const dx = lon - coord[0];
+            const dy = lat - coord[1];
+            const dist = dx * dx + dy * dy;
+            if (dist < MAX_ALLOWED_DISTANCE * MAX_ALLOWED_DISTANCE) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        // 🔒 Reject if targetCoord is too far from known points
+        if (!isTargetCoordNearAnyPoint(targetCoord)) {
+          onSnackbar(
+            "Target coordinate is too far from known points. Skipping route draw."
+          );
+          return;
+        }
+
         const startId = findNearestPointId(startCoord);
         const targetId = findNearestPointId(targetCoord);
 
+        if (!targetId || !coordMap.has(targetId)) {
+          onSnackbar(
+            "Target coordinate not found in known points. Skipping route draw."
+          );
+          return;
+        }
+
+        // 🧭 Dijkstra’s pathfinding
         const visited = new Set();
         const parent = new Map();
         const queue = [startId];
@@ -258,6 +298,8 @@ export async function initiateMap(canvas, mapInitialized, onReadyCallback) {
           map: texture,
           transparent: true,
         });
+        camera.position.set(tx, ty, 10);
+        camera.updateProjectionMatrix();
         const geometry = new THREE.PlaneGeometry(36, 36);
         geometry.translate(0, 18, 0);
         pinSprite = new THREE.Mesh(geometry, material);

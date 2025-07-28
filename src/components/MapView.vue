@@ -2,19 +2,28 @@
 import { ref, onMounted } from 'vue'
 import { resetCamera } from '@/services/scene' 
 import { initiateMap } from '@/services/scene'
+import { fetchMapData } from '@/services/mapService'
+const showError = ref(false)
+const errorMsg = ref('')
 const canvasRef = ref(null)
 const mapInitialized = ref(false)
 
-
 function handleResetCamera() {
   resetCamera();
-  // initiateMap(canvasRef.value, mapInitialized, () => {
-  // });
+}
+
+function triggerSnackbar(message) {
+  errorMsg.value = message
+  showError.value = true
+  setTimeout(() => {
+    showError.value = false
+  }, 3000)
 }
 
 onMounted(async () => {
-    initiateMap(canvasRef.value, mapInitialized,() => {
-    });    
+    const data = await  fetchMapData();
+    initiateMap(canvasRef.value, data, mapInitialized,() => {
+    }, triggerSnackbar);    
 });
 
 </script>
@@ -29,7 +38,17 @@ onMounted(async () => {
     height: 48px;
   }
 }
-
+.snackbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #e53935;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
 .map-wrapper {
   position: fixed;
   inset: 0;
@@ -137,6 +156,10 @@ canvas {
       </div>
     </div>
   </div>
+  <div v-if="showError" class="snackbar">
+    {{ errorMsg }}
+  </div>
+
 </template>
 
 
