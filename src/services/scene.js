@@ -17,7 +17,6 @@ const centerLat = 14.233539920666581;
 const centerLon = 121.15133389733768;
 const scale = 385000;
 const mapCenter = convertToXY([centerLon, centerLat]);
-// const targetCoord = [121.15327, 14.234041];
 let targetLong = 0;
 let targetLat = 0;
 let targetCoord = [];
@@ -34,43 +33,7 @@ const defaultCameraState = {
   rotation: 0,
 };
 
-export function checkPermissionAndInit() {
-  navigator.permissions.query({ name: "geolocation" }).then((result) => {
-    handlePermissionState(result.state);
-
-    result.onchange = () => {
-      handlePermissionState(result.state);
-    };
-  });
-}
-
-export function handlePermissionState(state) {
-  if (state === "granted") {
-    initiateMap();
-  } else if (state === "prompt") {
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        initiateMap();
-      },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          console.log("User denied location permission.");
-        }
-      }
-    );
-  } else if (state === "denied") {
-    console.log("Permission denied");
-    mapInitialized.value = false;
-  }
-}
-
-export async function initiateMap(
-  canvas,
-  data,
-  mapInitialized,
-  onReadyCallback,
-  onSnackbar
-) {
+export async function initiateMap(canvas, data, onReadyCallback, onSnackbar) {
   try {
     await getCurrentLocation();
   } catch (error) {
@@ -78,14 +41,15 @@ export async function initiateMap(
   }
 
   onReadyCallback();
-  mapInitialized.value = true;
-
-  targetLong = data.longitude;
-  targetLat = data.latitude;
+  if (data) {
+    targetLong = data.longitude;
+    targetLat = data.latitude;
+  }
   targetCoord = [targetLong, targetLat];
-  // Initialize the scene
+
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
 
   scene = new THREE.Scene();
   let lineMaterial;
@@ -116,11 +80,9 @@ export async function initiateMap(
     const material = new THREE.MeshBasicMaterial({ map: texture });
     const mapPlane = new THREE.Mesh(geometry, material);
     scene.add(mapPlane);
-    if (mapInitialized.value) {
-    }
 
     watchUserLocation((pos) => {
-      const { longitude, latitude, heading } = pos.coords;
+      const { longitude, latitude } = pos.coords;
       liveCoords = [longitude, latitude];
       fetch("/assets/json/points.json")
         .then((res) => res.json())
@@ -136,7 +98,6 @@ export async function initiateMap(
           const coords = distToNearest < threshold ? liveCoords : gateCoord;
           ({ x: userX, y: userY } = convertToXY(coords));
 
-          // --- everything that uses coords, x, y should be inside here ---
           if (!locationDot) {
             const dot = new THREE.Mesh(
               new THREE.CircleGeometry(8, 32),
@@ -190,7 +151,6 @@ export async function initiateMap(
           coordMap.set(p.id, p.coordinates);
         });
 
-        // --- 🔁 Dijkstra Route Drawing ---
         function findNearestPointId(coord) {
           let nearestId = null;
           let minDist = Infinity;
@@ -223,7 +183,6 @@ export async function initiateMap(
           return false;
         }
 
-        // 🔒 Reject if targetCoord is too far from known points
         if (!isTargetCoordNearAnyPoint(targetCoord)) {
           onSnackbar(
             "Target coordinate is too far from known points. Skipping route draw."
@@ -241,7 +200,6 @@ export async function initiateMap(
           return;
         }
 
-        // 🧭 Dijkstra’s pathfinding
         const visited = new Set();
         const parent = new Map();
         const queue = [startId];
@@ -314,6 +272,7 @@ export async function initiateMap(
     if (lineMaterial) {
       lineMaterial.resolution.set(window.innerWidth, window.innerHeight);
     }
+    renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.render(scene, camera);
 
     if (locationDot) {
