@@ -1,15 +1,18 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { resetCamera } from '@/services/scene' 
-import { initiateMap } from '@/services/scene'
+import { ref, onMounted, onBeforeUnmount  } from 'vue'
+import { resetCamera, initiateMap } from '@/services/scene'
 import { fetchMapData } from '@/services/mapService'
+
 const showError = ref(false)
 const errorMsg = ref('')
 const canvasRef = ref(null)
-const mapInitialized = ref(false)
+const mapInitialized = ref(true)
+const loading = ref(true)
+const lotId = window.location.pathname.split('/').pop()
+let data = []
 
 function handleResetCamera() {
-  resetCamera();
+  resetCamera()
 }
 
 function triggerSnackbar(message) {
@@ -20,16 +23,67 @@ function triggerSnackbar(message) {
   }, 3000)
 }
 
-onMounted(async () => {
-    const data = await  fetchMapData();
-    initiateMap(canvasRef.value, data, mapInitialized,() => {
-    }, triggerSnackbar);    
-});
+let permissionStatus = null
 
+function handlePermissionState(state) {
+  if (state === 'granted') {
+    mapInitialized.value = true
+    initiateMap(canvasRef.value, data, () => {}, triggerSnackbar)
+  } else if (state === 'prompt') {
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        mapInitialized.value = true
+        initiateMap(canvasRef.value, data, () => {}, triggerSnackbar)
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          console.log('User denied location permission.')
+          mapInitialized.value = false
+        }
+      }
+    )
+  } else if (state === 'denied') {
+    console.log('Permission denied')
+    mapInitialized.value = false
+  }
+}
+
+async function checkPermissionAndInit() {
+  if (!navigator.permissions) {
+    console.warn('Permissions API not supported.')
+    return
+  }
+
+  try {
+    permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
+    handlePermissionState(permissionStatus.state)
+
+    permissionStatus.onchange = () => {
+      console.log('Permission changed to:', permissionStatus.state)
+      handlePermissionState(permissionStatus.state)
+    }
+  } catch (err) {
+    console.error('Failed to query permissions:', err)
+  }
+}
+
+onMounted(async () => {
+  data = await fetchMapData(lotId)
+    requestAnimationFrame(() => {
+    checkPermissionAndInit()
+    loading.value = false
+  })
+})
+
+onBeforeUnmount(() => {
+  if (permissionStatus) {
+    permissionStatus.onchange = null
+  }
+})
 </script>
 
 <style scoped>
-@media (max-width: 500px) {wa
+@media (max-width: 500px) {
   .home-btn {
     bottom: 80px;
     right: 2vw;
@@ -139,27 +193,62 @@ canvas {
   border-radius: 6px;
   cursor: pointer;
 }
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 6px solid #ccc;
+  border-top-color: #4285f4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 </style>
 <template>
-  <div class="map-wrapper">
+  <!-- LOADING SCREEN -->
+  <div v-if="loading" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Loading map...</p>
+  </div>
+
+  <!-- MAP + CONTROLS -->
+  <div v-else class="map-wrapper">
     <canvas ref="canvasRef" id="webgl"></canvas>
     <button class="home-btn" @click="handleResetCamera" title="My Location">
       <span class="material-icons">my_location</span>
     </button>
-  </div>
 
-  <div v-if="!mapInitialized" class="dialog-overlay">
-    <div class="dialog-content">
-      <h3>Location Permission Needed</h3>
-      <p>This app uses your location to show where you are and help guide your route. Please enable location access in your browser settings.</p>
-      <div class="dialog-actions">
+    <!-- Permission Dialog -->
+    <div v-if="!mapInitialized" class="dialog-overlay">
+      <div class="dialog-content">
+        <h3>Location Permission Needed</h3>
+        <p>This app uses your location to show where you are and help guide your route. Please enable location access in your browser settings.</p>
       </div>
     </div>
-  </div>
-  <div v-if="showError" class="snackbar">
-    {{ errorMsg }}
-  </div>
 
+    <!-- Snackbar Error -->
+    <div v-if="showError" class="snackbar">
+      {{ errorMsg }}
+    </div>
+  </div>
 </template>
+
 
 
